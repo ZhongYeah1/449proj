@@ -1,0 +1,23 @@
+# Secrets
+.env
+todo_app/backend/.env
+
+# Changelog (internal)
+CHANGELOG.md
+
+# Claude Code artifacts
+.claude/
+CLAUDE.md
+
+# Jaseci build artifacts
+todo_app/backend/.jac/
+todo_app/backend/node_modules/
+__pycache__/
+*.pyc
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Jaseci research (internal)
+jaseci_research.md

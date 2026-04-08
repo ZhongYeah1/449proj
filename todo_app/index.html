@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FoodVision AI | Home</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="theme.css" />
+  <style>
+    .hero {
+      display: grid;
+      gap: 16px;
+      grid-template-columns: 1.2fr .8fr;
+    }
+
+    .hero-title {
+      margin: 0;
+      font-size: clamp(1.8rem, 3vw, 2.7rem);
+      line-height: 1.1;
+    }
+
+    .hero p { color: var(--muted); line-height: 1.6; }
+
+    .cta-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+
+    .cta-primary {
+      animation: ctaPulse 2.6s ease-in-out infinite;
+    }
+
+    .cta-primary:hover {
+      animation-play-state: paused;
+      transform: translateY(-2px) scale(1.08) rotate(-1deg);
+    }
+
+    .cta-secondary:hover {
+      transform: translateY(-2px) scale(1.08);
+      animation: ctaSwing .9s ease-in-out infinite;
+    }
+
+    .nav-auth-btn:hover {
+      animation: authWiggle .9s ease-in-out infinite;
+    }
+
+    .feature-card {
+      transition: transform .2s ease, box-shadow .2s ease;
+      cursor: pointer;
+    }
+
+    .feature-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 18px 30px rgba(80,40,20,.16);
+    }
+
+    .feature-a:hover { transform: translateY(-4px) rotate(-1deg); }
+    .feature-b:hover { transform: translateY(-4px) scale(1.02); }
+    .feature-c:hover { transform: translateY(-4px) rotate(1deg); }
+
+    .press-flash {
+      animation: pressFlash .32s ease;
+    }
+
+    .mouse-glow {
+      position: fixed;
+      width: 280px;
+      height: 280px;
+      border-radius: 999px;
+      pointer-events: none;
+      z-index: 0;
+      background: radial-gradient(circle, rgba(255,255,255,.55) 0%, rgba(255,255,255,0) 65%);
+      transform: translate(-50%, -50%);
+      opacity: .6;
+    }
+
+    @media (max-width: 900px) {
+      .hero { grid-template-columns: 1fr; }
+    }
+
+    @keyframes ctaPulse {
+      0%, 100% { box-shadow: 0 10px 22px rgba(255,102,51,.28); }
+      50% { box-shadow: 0 18px 30px rgba(255,102,51,.38); }
+    }
+
+    @keyframes ctaSwing {
+      0% { transform: translateY(-2px) scale(1.08) rotate(0deg); }
+      35% { transform: translateY(-2px) scale(1.08) rotate(-2deg); }
+      70% { transform: translateY(-2px) scale(1.08) rotate(2deg); }
+      100% { transform: translateY(-2px) scale(1.08) rotate(0deg); }
+    }
+
+    @keyframes authWiggle {
+      0%, 100% { transform: translateY(-2px) scale(1.05) rotate(0deg); }
+      25% { transform: translateY(-2px) scale(1.05) rotate(-2deg); }
+      75% { transform: translateY(-2px) scale(1.05) rotate(2deg); }
+    }
+
+    @keyframes pressFlash {
+      from { filter: brightness(1.2); }
+      to { filter: brightness(1); }
+    }
+  </style>
+</head>
+<body>
+  <div class="mouse-glow" id="mouseGlow"></div>
+  <div class="bg-orbs" aria-hidden="true"><div class="orb"></div><div class="orb"></div><div class="orb"></div><div class="orb"></div></div>
+
+  <div class="page">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-badge">🍽️</div>
+        <div>FoodVision AI</div>
+      </div>
+      <nav class="nav-links">
+        <a class="nav-link active" href="index.html">Home</a>
+        <a class="nav-link" href="delivery.html">Delivery</a>
+        <a class="nav-link" href="calories.html">Planner</a>
+        <a class="nav-link" href="profile.html">Profile</a>
+      </nav>
+      <button id="topAuthBtn" class="ghost-btn nav-auth-btn">Sign Up / Login</button>
+    </header>
+
+    <section class="panel hero">
+      <div>
+        <h1 class="hero-title">Recognize food from images and generate recipes in seconds.</h1>
+        <p>Explore restaurants, estimate calories, and store personalized records in one elegant AI assistant. All features are open in guest mode for this template demo.</p>
+        <div class="cta-row">
+          <a class="pill-btn cta-primary" href="delivery.html" style="text-decoration:none; display:inline-block;">Explore Delivery</a>
+          <a class="ghost-btn cta-secondary" href="calories.html" style="text-decoration:none; display:inline-block;">Open Meal Planner</a>
+        </div>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0;">Session</h3>
+        <p class="hint" id="sessionInfo">Session status updates here.</p>
+        <p class="hint" style="margin:10px 0 0;">Use the top-right button to sign in or sign out. All demo features stay available in guest mode.</p>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2 style="margin-bottom:10px;">Quick Actions</h2>
+      <div class="grid grid-3">
+        <a class="card feature-card feature-a" href="delivery.html" style="text-decoration:none; color:inherit;">
+          <h3>🛵 Delivery Hub</h3>
+          <p class="hint">Search local restaurants, filter by speed/popularity, and order quickly.</p>
+        </a>
+        <a class="card feature-card feature-b" href="calories.html" style="text-decoration:none; color:inherit;">
+          <h3>📊 Meal Planner</h3>
+          <p class="hint">Upload meal photos, describe your taste, and get structured recommendations.</p>
+        </a>
+        <a class="card feature-card feature-c" href="profile.html" style="text-decoration:none; color:inherit;">
+          <h3>👤 Personal Records</h3>
+          <p class="hint">Save habits and preferences to personalize recommendations.</p>
+        </a>
+      </div>
+    </section>
+
+  </div>
+
+  <script src="auth.js"></script>
+  <script>
+    (function () {
+      var user = FoodAuth.getUser();
+      var sessionInfo = document.getElementById("sessionInfo");
+      var mouseGlow = document.getElementById("mouseGlow");
+      var authBinding = FoodAuth.wireTopbarAuth("topAuthBtn", refreshSessionText);
+
+      FoodAuth.showNoHistoryPopup();
+
+      function refreshSessionText() {
+        user = FoodAuth.getUser();
+        if (!user) {
+          sessionInfo.textContent = "Current mode: Visitor (not signed in).";
+          return;
+        }
+
+        if (user.mode === "guest") {
+          sessionInfo.textContent = "Current mode: Guest session.";
+        } else if (user.mode === "phone") {
+          sessionInfo.textContent = "Current mode: Signed in by phone (" + user.phone + ").";
+        } else {
+          sessionInfo.textContent = "Current mode: Signed in by email (" + user.email + ").";
+        }
+      }
+
+      refreshSessionText();
+
+      if (authBinding && typeof authBinding.refresh === "function") {
+        authBinding.refresh();
+      }
+
+      document.addEventListener("mousemove", function (e) {
+        mouseGlow.style.left = e.clientX + "px";
+        mouseGlow.style.top = e.clientY + "px";
+      });
+
+      document.querySelectorAll("button, .cta-row a").forEach(function (el) {
+        el.addEventListener("click", function () {
+          el.classList.remove("press-flash");
+          void el.offsetWidth;
+          el.classList.add("press-flash");
+        });
+      });
+    })();
+  </script>
+</body>
+</html>
