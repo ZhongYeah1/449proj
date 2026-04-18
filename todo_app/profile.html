@@ -239,31 +239,16 @@
       loadProfile();
       toggleEditable(true);
 
-      // Default profile values (to detect AI-learned changes)
-      var defaultProfile = {
-        dietary_restrictions: [],
-        allergies: [],
-        cuisine_preferences: ["Italian"],
-        flavor_preferences: ["sour", "salty"],
-        disliked_foods: [],
-        cooking_skill_level: "Intermediate",
-        available_equipment: ["oven", "baking dish", "mixing bowls"],
-        nutritional_goals: [],
-        other_preferences: []
-      };
-
-      // Try to load profile from Jac backend
+      // Try to load profile from Jac backend (authoritative source).
+      // Provenance of AI-learned fields comes from the backend's ai_learned_fields array.
       if (FoodAuth.getJwt()) {
         FoodAuth.apiCall("/function/get_profile", {}, true).then(function (res) {
           if (res && res.ok && res.data && res.data.result) {
             var bp = res.data.result;
             if (bp.display_name && !displayName.value) displayName.value = bp.display_name;
             if (bp.habits && !habits.value) habits.value = bp.habits;
-            // Update food prefs from backend and re-render
-            if (bp.cuisine_preferences && bp.cuisine_preferences.length) {
-              localStorage.setItem("foodvision.userProfile", JSON.stringify(bp));
-              loadFoodPrefs();
-            }
+            localStorage.setItem("foodvision.userProfile", JSON.stringify(bp));
+            loadFoodPrefs();
           }
         }).catch(function () {});
       }
@@ -277,19 +262,11 @@
           var fp = JSON.parse(raw);
           if (!fp) return;
 
-          function isLearned(field) {
-            var defaults = defaultProfile[field];
-            var current = fp[field];
-            if (!defaults || !current) return false;
-            if (typeof current === "string") return current !== defaults;
-            if (Array.isArray(current) && Array.isArray(defaults)) {
-              return JSON.stringify(current.slice().sort()) !== JSON.stringify(defaults.slice().sort());
-            }
-            return false;
-          }
+          var learnedSet = {};
+          (fp.ai_learned_fields || []).forEach(function (k) { learnedSet[k] = true; });
 
           function learnedBadge(field) {
-            return isLearned(field) ? ' <span style="font-size:.65rem;color:#1f9d55;font-weight:700;vertical-align:middle;">AI learned</span>' : '';
+            return learnedSet[field] ? ' <span style="font-size:.65rem;color:#1f9d55;font-weight:700;vertical-align:middle;">AI learned</span>' : '';
           }
 
           function tagsHtml(arr) {

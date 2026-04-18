@@ -52,13 +52,41 @@ def safe_parse_json(text: str) -> dict:
 
     # Attempt 4: extract key fields manually with regex as last resort
     try:
-        dish = re.search(r'"dish_name"\s*:\s*"([^"]*)"', json_str)
-        if dish:
+        # analyze_meal response shape
+        if re.search(r'"dish_name"\s*:\s*"([^"]*)"', json_str):
             return _extract_fields_regex(json_str)
+        # evolve_profile response shape — flat dict of profile fields
+        flat = _extract_flat_profile_regex(json_str)
+        if flat:
+            return flat
     except Exception:
         pass
 
     return {"error": "JSON parse error: could not fix malformed response", "raw": text[:500]}
+
+
+def _extract_flat_profile_regex(s: str) -> dict:
+    """Last-resort regex extraction for evolve_profile's flat dict shape."""
+    list_keys = [
+        "dietary_restrictions", "allergies", "cuisine_preferences",
+        "flavor_preferences", "available_equipment", "nutritional_goals",
+        "disliked_foods", "other_preferences",
+    ]
+    scalar_keys = ["cooking_skill_level"]
+
+    out: dict = {}
+    for key in list_keys:
+        m = re.search(rf'"{key}"\s*:\s*\[(.*?)\]', s, re.DOTALL)
+        if not m:
+            continue
+        items = re.findall(r'"((?:[^"\\]|\\.)*)"', m.group(1))
+        if items:
+            out[key] = items
+    for key in scalar_keys:
+        m = re.search(rf'"{key}"\s*:\s*"((?:[^"\\]|\\.)*)"', s)
+        if m and m.group(1):
+            out[key] = m.group(1)
+    return out
 
 
 def _extract_fields_regex(s: str) -> dict:

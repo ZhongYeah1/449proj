@@ -15,9 +15,8 @@ Endpoints:
 import from dotenv { load_dotenv }
 import from os { getenv }
 import from requests { post as http_post }
-import from json { dumps as json_dumps, loads as json_loads }
-import from re { sub as re_sub, search as re_search }
-import from datetime { datetime as dt_cls, timedelta as td_cls }
+import from json { dumps as json_dumps }
+import from datetime { datetime as dt_cls }
 import from helpers { safe_parse_json }
 
 
@@ -37,6 +36,7 @@ node UserProfile {
         other_preferences: list = [],
         display_name: str = "",
         habits: str = "",
+        ai_learned_fields: list = [],
         updated_at: str = "";
 }
 
@@ -164,6 +164,7 @@ def:priv get_profile() -> dict {
         "nutritional_goals": p.nutritional_goals,
         "disliked_foods": p.disliked_foods,
         "other_preferences": p.other_preferences,
+        "ai_learned_fields": p.ai_learned_fields,
         "updated_at": p.updated_at
     };
 }
@@ -188,17 +189,47 @@ def:priv update_profile(
         profiles = [root()-->][?:UserProfile];
     }
     p = profiles[0];
+    # A manual update by the user overrides AI-learned provenance for that field.
+    learned: list = list(p.ai_learned_fields);
     if display_name { p.display_name = display_name; }
     if habits { p.habits = habits; }
-    if dietary_restrictions { p.dietary_restrictions = dietary_restrictions; }
-    if allergies { p.allergies = allergies; }
-    if cuisine_preferences { p.cuisine_preferences = cuisine_preferences; }
-    if flavor_preferences { p.flavor_preferences = flavor_preferences; }
-    if cooking_skill_level { p.cooking_skill_level = cooking_skill_level; }
-    if available_equipment { p.available_equipment = available_equipment; }
-    if nutritional_goals { p.nutritional_goals = nutritional_goals; }
-    if disliked_foods { p.disliked_foods = disliked_foods; }
-    if other_preferences { p.other_preferences = other_preferences; }
+    if dietary_restrictions {
+        p.dietary_restrictions = dietary_restrictions;
+        if "dietary_restrictions" in learned { learned.remove("dietary_restrictions"); }
+    }
+    if allergies {
+        p.allergies = allergies;
+        if "allergies" in learned { learned.remove("allergies"); }
+    }
+    if cuisine_preferences {
+        p.cuisine_preferences = cuisine_preferences;
+        if "cuisine_preferences" in learned { learned.remove("cuisine_preferences"); }
+    }
+    if flavor_preferences {
+        p.flavor_preferences = flavor_preferences;
+        if "flavor_preferences" in learned { learned.remove("flavor_preferences"); }
+    }
+    if cooking_skill_level {
+        p.cooking_skill_level = cooking_skill_level;
+        if "cooking_skill_level" in learned { learned.remove("cooking_skill_level"); }
+    }
+    if available_equipment {
+        p.available_equipment = available_equipment;
+        if "available_equipment" in learned { learned.remove("available_equipment"); }
+    }
+    if nutritional_goals {
+        p.nutritional_goals = nutritional_goals;
+        if "nutritional_goals" in learned { learned.remove("nutritional_goals"); }
+    }
+    if disliked_foods {
+        p.disliked_foods = disliked_foods;
+        if "disliked_foods" in learned { learned.remove("disliked_foods"); }
+    }
+    if other_preferences {
+        p.other_preferences = other_preferences;
+        if "other_preferences" in learned { learned.remove("other_preferences"); }
+    }
+    p.ai_learned_fields = learned;
     p.updated_at = str(dt_cls.now());
     return {"success": True, "updated_at": p.updated_at};
 }
@@ -249,8 +280,10 @@ def:priv get_meals() -> list {
 
 
 """Evolve user profile based on meal history patterns (AI-driven).
-Accepts current_profile and recent_meals as input (client sends these)."""
-def:pub evolve_profile(current_profile: dict = {}, recent_meals: list = []) -> dict {
+Auth-required. Accepts current_profile and recent_meals as input (client sends these
+because Jac ShelfStorage does not make data written in one request visible to graph
+queries in another request)."""
+def:priv evolve_profile(current_profile: dict = {}, recent_meals: list = []) -> dict {
     load_dotenv();
     api_key = getenv("OPENROUTER_API_KEY", "");
 
@@ -259,8 +292,10 @@ def:pub evolve_profile(current_profile: dict = {}, recent_meals: list = []) -> d
     }
 
     recent = recent_meals;
-    if len(recent) > 20 {
-        recent = recent[-20:];
+    # Sort by created_at so the last-N slice is the most recent meals
+    sorted_meals = sorted(recent, key=lambda m: m.get("created_at", ""));
+    if len(sorted_meals) > 20 {
+        sorted_meals = sorted_meals[-20:];
     }
 
     prompt = "\n".join([
@@ -270,12 +305,13 @@ def:pub evolve_profile(current_profile: dict = {}, recent_meals: list = []) -> d
         "For example: if they cooked Korean food 3 times but Korean is not in cuisine_preferences, add it.",
         "If they always request quick meals but other_preferences has no time note, add one.",
         "Do NOT remove existing preferences. Only ADD or update.",
+        "For list fields, return ONLY the NEW items to add (not the full list).",
         "",
         "Current profile: " + json_dumps(current_profile),
-        "Recent meals (last 14 days): " + json_dumps(recent),
+        "Recent meals: " + json_dumps(sorted_meals),
         "",
         "Return ONLY a JSON object with the fields that should change. Example:",
-        '{"cuisine_preferences": ["Korean", "Italian"], "other_preferences": ["prefers quick meals"]}',
+        '{"cuisine_preferences": ["Korean"], "other_preferences": ["prefers quick meals"]}',
         "If no changes needed, return: {}",
         "IMPORTANT: Return ONLY the JSON object, nothing else."
     ]);
@@ -311,14 +347,83 @@ def:pub evolve_profile(current_profile: dict = {}, recent_meals: list = []) -> d
         return {"evolved": False, "reason": "No profile changes needed"};
     }
 
-    # Merge updates into current_profile and return
+    # Additive-only merge: union-dedupe for list fields; only fill scalars if empty.
+    # Track which fields were changed for provenance ("AI learned" badge).
+    list_fields = [
+        "dietary_restrictions", "allergies", "cuisine_preferences",
+        "flavor_preferences", "available_equipment", "nutritional_goals",
+        "disliked_foods", "other_preferences"
+    ];
+    scalar_fields = ["cooking_skill_level"];
+
     merged = dict(current_profile);
+    learned_fields: list = list(current_profile.get("ai_learned_fields", []));
+    actual_changes: dict = {};
+
     for k in updates {
-        merged[k] = updates[k];
+        new_val = updates[k];
+        if k in list_fields {
+            if not isinstance(new_val, list) {
+                continue;
+            }
+            existing = list(merged.get(k, []));
+            existing_lower = [str(x).lower() for x in existing];
+            added: list = [];
+            for item in new_val {
+                if str(item).lower() not in existing_lower {
+                    existing.append(item);
+                    existing_lower.append(str(item).lower());
+                    added.append(item);
+                }
+            }
+            if added {
+                merged[k] = existing;
+                actual_changes[k] = added;
+                if k not in learned_fields {
+                    learned_fields.append(k);
+                }
+            }
+        } elif k in scalar_fields {
+            current_val = merged.get(k, "");
+            if new_val and not current_val {
+                merged[k] = new_val;
+                actual_changes[k] = new_val;
+                if k not in learned_fields {
+                    learned_fields.append(k);
+                }
+            }
+        }
     }
+
+    merged["ai_learned_fields"] = learned_fields;
+
+    if not actual_changes {
+        return {"evolved": False, "reason": "No new patterns detected"};
+    }
+
+    # Persist merged profile + provenance to the graph (explicit assignment; no setattr)
+    profiles = [root()-->][?:UserProfile];
+    if not profiles {
+        root() ++> UserProfile();
+        profiles = [root()-->][?:UserProfile];
+    }
+    p = profiles[0];
+    if "dietary_restrictions" in merged { p.dietary_restrictions = merged["dietary_restrictions"]; }
+    if "allergies" in merged { p.allergies = merged["allergies"]; }
+    if "cuisine_preferences" in merged { p.cuisine_preferences = merged["cuisine_preferences"]; }
+    if "flavor_preferences" in merged { p.flavor_preferences = merged["flavor_preferences"]; }
+    if "available_equipment" in merged { p.available_equipment = merged["available_equipment"]; }
+    if "nutritional_goals" in merged { p.nutritional_goals = merged["nutritional_goals"]; }
+    if "disliked_foods" in merged { p.disliked_foods = merged["disliked_foods"]; }
+    if "other_preferences" in merged { p.other_preferences = merged["other_preferences"]; }
+    if merged.get("cooking_skill_level") { p.cooking_skill_level = merged["cooking_skill_level"]; }
+    p.ai_learned_fields = learned_fields;
+    p.updated_at = str(dt_cls.now());
+
     return {
         "evolved": True,
-        "changes": updates,
+        "changes": actual_changes,
+        "learned_fields": learned_fields,
         "profile": merged
     };
 }

@@ -1093,13 +1093,14 @@
         generateBtn.classList.add("loading");
         generateBtn.textContent = "Generating...";
 
-        // Fetch recent meal history and build summary for context
+        // Fetch recent meal history and build summary for context. Also reused for evolve_profile below.
         var historySummary = "";
+        var allMeals = [];
         if (FoodAuth.getJwt()) {
           try {
             var mealsRes = await FoodAuth.apiCall("/function/get_meals", {}, true);
             if (mealsRes && mealsRes.ok && mealsRes.data && mealsRes.data.result) {
-              var allMeals = mealsRes.data.result;
+              allMeals = mealsRes.data.result;
               var cutoff = new Date();
               cutoff.setDate(cutoff.getDate() - 14);
               var recent = allMeals.filter(function (m) {
@@ -1205,37 +1206,40 @@
               user_message: effectiveMessage
             }, true).catch(function (e) { console.warn("save_meal failed:", e); });
 
-            // Evolve profile based on meal history patterns
-            // Collect recent meals for the evolve call
-            var evolveMeals = [];
-            FoodAuth.apiCall("/function/get_meals", {}, true).then(function (mealsRes) {
-              if (mealsRes && mealsRes.ok && mealsRes.data && mealsRes.data.result) {
-                evolveMeals = mealsRes.data.result;
-              }
-              return fetch(FoodAuth.API_BASE + "/function/evolve_profile", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ current_profile: userProfile, recent_meals: evolveMeals })
-              }).then(function (r) { return r.json(); });
-            }).then(function (res) {
+            // Evolve profile based on meal history patterns.
+            // Reuse allMeals already fetched earlier and include the just-generated meal so the AI sees it.
+            var evolveMeals = (allMeals || []).slice();
+            evolveMeals.push({
+              dish_name: recommendation.dish_name || "",
+              reason: recommendation.reason_for_recommendation || "",
+              key_ingredients: recommendation.key_ingredients || [],
+              user_message: effectiveMessage,
+              created_at: new Date().toISOString()
+            });
+
+            FoodAuth.apiCall("/function/evolve_profile", {
+              current_profile: userProfile,
+              recent_meals: evolveMeals
+            }, true).then(function (res) {
               if (res && res.ok && res.data && res.data.result && res.data.result.evolved) {
                 var evolved = res.data.result;
-                var newProfile = evolved.profile;
-                // Merge evolved profile into local userProfile
-                if (newProfile.dietary_restrictions) userProfile.dietary_restrictions = newProfile.dietary_restrictions;
-                if (newProfile.allergies) userProfile.allergies = newProfile.allergies;
-                if (newProfile.cuisine_preferences) userProfile.cuisine_preferences = newProfile.cuisine_preferences;
-                if (newProfile.flavor_preferences) userProfile.flavor_preferences = newProfile.flavor_preferences;
+                var newProfile = evolved.profile || {};
+                // Backend has already union-deduped and persisted to the graph;
+                // just mirror the authoritative profile into local state.
+                ["dietary_restrictions", "allergies", "cuisine_preferences",
+                 "flavor_preferences", "available_equipment", "nutritional_goals",
+                 "disliked_foods", "other_preferences"].forEach(function (k) {
+                  if (Array.isArray(newProfile[k])) userProfile[k] = newProfile[k];
+                });
                 if (newProfile.cooking_skill_level) userProfile.cooking_skill_level = newProfile.cooking_skill_level;
-                if (newProfile.available_equipment) userProfile.available_equipment = newProfile.available_equipment;
-                if (newProfile.nutritional_goals) userProfile.nutritional_goals = newProfile.nutritional_goals;
-                if (newProfile.disliked_foods) userProfile.disliked_foods = newProfile.disliked_foods;
-                if (newProfile.other_preferences) userProfile.other_preferences = newProfile.other_preferences;
+                userProfile.ai_learned_fields = newProfile.ai_learned_fields || evolved.learned_fields || [];
                 try { localStorage.setItem("foodvision.userProfile", JSON.stringify(userProfile)); } catch (e) { }
-                addBubble("assistant", "Profile updated: learned from your meal patterns.");
+                var changed = Object.keys(evolved.changes || {}).join(", ");
+                addBubble("assistant", "Profile updated" + (changed ? " (" + changed + ")" : "") + ": learned from your meal patterns.");
                 leftStatus.textContent = "Done. Profile evolved from your history.";
               } else {
-                leftStatus.textContent = "Done.";
+                var reason = res && res.data && res.data.result && res.data.result.reason;
+                leftStatus.textContent = "Done." + (reason ? " (" + reason + ")" : "");
               }
             }).catch(function (e) {
               console.warn("evolve_profile failed:", e);
