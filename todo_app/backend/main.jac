@@ -9,6 +9,7 @@ Endpoints:
   POST /function/update_profile  - Update user profile (auth required)
   POST /function/save_meal       - Save meal entry (auth required)
   POST /function/get_meals       - Get meal history (auth required)
+  POST /function/evolve_profile  - AI-driven profile evolution (auth required)
 """
 
 import from dotenv { load_dotenv }
@@ -16,7 +17,9 @@ import from os { getenv }
 import from requests { post as http_post }
 import from json { dumps as json_dumps, loads as json_loads }
 import from re { sub as re_sub, search as re_search }
-import from datetime { datetime as dt_cls }
+import from datetime { datetime as dt_cls, timedelta as td_cls }
+import from helpers { safe_parse_json }
+
 
 
 
@@ -62,15 +65,41 @@ def:pub analyze_meal(image_base64: str = "", message: str = "", user_profile: di
     api_key = getenv("OPENROUTER_API_KEY", "");
 
     system_prompt = "\n".join([
-        "You are a professional food and nutrition AI assistant.",
-        "You MUST respond with valid JSON only (no markdown, no code fences, no extra text).",
-        "The JSON must have exactly this structure:",
-        '{"updated_user_profile":{"dietary_restrictions":[],"allergies":[],"cuisine_preferences":[],"flavor_preferences":[],"cooking_skill_level":"string","available_equipment":[],"nutritional_goals":[],"disliked_foods":[]},"recommendation":{"dish_name":"string","reason_for_recommendation":"string","key_ingredients":[],"substitutions":[],"nutrition_analysis":{"estimated_daily_needs":{"calories":"string","protein":"string","carbohydrates":"string","fat":"string","fiber":"string"},"ingredient_nutrition_summary":"string","nutritional_balance_assessment":"string","suggested_nutritional_improvements":"string"},"preparation_overview":["Step 1: ...","Step 2: ..."]}}',
+        "You are a food and nutrition AI. Respond with ONLY valid JSON. No markdown, no code fences, no explanation, no thinking.",
+        "Use this exact JSON structure:",
+        "{",
+        '  "updated_user_profile": {',
+        '    "dietary_restrictions": ["string"],',
+        '    "allergies": ["string"],',
+        '    "cuisine_preferences": ["string"],',
+        '    "flavor_preferences": ["string"],',
+        '    "cooking_skill_level": "string",',
+        '    "available_equipment": ["string"],',
+        '    "nutritional_goals": ["string"],',
+        '    "disliked_foods": ["string"]',
+        "  },",
+        '  "recommendation": {',
+        '    "dish_name": "string",',
+        '    "reason_for_recommendation": "string (keep short, 1-2 sentences)",',
+        '    "key_ingredients": ["string"],',
+        '    "substitutions": ["string"],',
+        '    "nutrition_analysis": {',
+        '      "estimated_daily_needs": {"calories": "string", "protein": "string", "carbohydrates": "string", "fat": "string", "fiber": "string"},',
+        '      "ingredient_nutrition_summary": "string (1-2 sentences)",',
+        '      "nutritional_balance_assessment": "string (1-2 sentences)",',
+        '      "suggested_nutritional_improvements": "string (1-2 sentences)"',
+        "    },",
+        '    "preparation_overview": ["Step 1: ...", "Step 2: ..."]',
+        "  }",
+        "}",
+        "",
+        "Rules:",
+        "- All string values must use double quotes and must NOT contain unescaped quotes or newlines inside them.",
+        "- Keep text values short. No long paragraphs.",
+        "- Do NOT include any text before or after the JSON.",
         "",
         "Current user profile: " + json_dumps(user_profile),
-        "Analyze the food image, identify what is in it, and provide a personalized recipe recommendation.",
-        "Update the user profile based on any new preferences mentioned in the user message.",
-        "IMPORTANT: Return ONLY the JSON object, nothing else."
+        "If the profile contains meal_history_summary, avoid repeating recent dishes."
     ]);
 
     user_msg = message if message else "Analyze this food image and suggest a recipe based on what you see and my preferences.";
@@ -109,14 +138,7 @@ def:pub analyze_meal(image_base64: str = "", message: str = "", user_profile: di
     }
 
     content = str(resp_json["choices"][0]["message"]["content"]);
-    content = re_sub("^```(?:json)?\\s*", "", content.strip());
-    content = re_sub("\\s*```$", "", content.strip());
-
-    found = re_search("\\{[\\s\\S]*\\}", content);
-    if found {
-        return json_loads(found.group(0));
-    }
-    return {"error": "Could not parse JSON from model response", "raw": content};
+    return safe_parse_json(content);
 }
 
 
@@ -223,4 +245,80 @@ def:priv get_meals() -> list {
         });
     }
     return result;
+}
+
+
+"""Evolve user profile based on meal history patterns (AI-driven).
+Accepts current_profile and recent_meals as input (client sends these)."""
+def:pub evolve_profile(current_profile: dict = {}, recent_meals: list = []) -> dict {
+    load_dotenv();
+    api_key = getenv("OPENROUTER_API_KEY", "");
+
+    if not recent_meals {
+        return {"evolved": False, "reason": "No recent meals provided"};
+    }
+
+    recent = recent_meals;
+    if len(recent) > 20 {
+        recent = recent[-20:];
+    }
+
+    prompt = "\n".join([
+        "You are analyzing a user's meal history to update their food preference profile.",
+        "Look at their recent meals and current profile. Suggest updates ONLY for fields where",
+        "the meal history clearly shows a pattern not yet reflected in the profile.",
+        "For example: if they cooked Korean food 3 times but Korean is not in cuisine_preferences, add it.",
+        "If they always request quick meals but other_preferences has no time note, add one.",
+        "Do NOT remove existing preferences. Only ADD or update.",
+        "",
+        "Current profile: " + json_dumps(current_profile),
+        "Recent meals (last 14 days): " + json_dumps(recent),
+        "",
+        "Return ONLY a JSON object with the fields that should change. Example:",
+        '{"cuisine_preferences": ["Korean", "Italian"], "other_preferences": ["prefers quick meals"]}',
+        "If no changes needed, return: {}",
+        "IMPORTANT: Return ONLY the JSON object, nothing else."
+    ]);
+
+    resp = http_post(
+        "https://openrouter.ai/api/v1/chat/completions",
+        headers={
+            "Authorization": "Bearer " + api_key,
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://foodvision-ai.app",
+            "X-OpenRouter-Title": "FoodVision AI"
+        },
+        json={
+            "model": "qwen/qwen3-vl-32b-instruct",
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": 512,
+            "temperature": 0.3
+        },
+        timeout=60
+    );
+
+    resp_json = resp.json();
+    if resp.status_code != 200 {
+        return {"evolved": False, "reason": "AI call failed: " + str(resp.status_code)};
+    }
+
+    content = str(resp_json["choices"][0]["message"]["content"]);
+    updates = safe_parse_json(content);
+    if updates.get("error") {
+        return {"evolved": False, "reason": "Parse error: " + str(updates.get("error"))};
+    }
+    if not updates {
+        return {"evolved": False, "reason": "No profile changes needed"};
+    }
+
+    # Merge updates into current_profile and return
+    merged = dict(current_profile);
+    for k in updates {
+        merged[k] = updates[k];
+    }
+    return {
+        "evolved": True,
+        "changes": updates,
+        "profile": merged
+    };
 }

@@ -239,6 +239,19 @@
       loadProfile();
       toggleEditable(true);
 
+      // Default profile values (to detect AI-learned changes)
+      var defaultProfile = {
+        dietary_restrictions: [],
+        allergies: [],
+        cuisine_preferences: ["Italian"],
+        flavor_preferences: ["sour", "salty"],
+        disliked_foods: [],
+        cooking_skill_level: "Intermediate",
+        available_equipment: ["oven", "baking dish", "mixing bowls"],
+        nutritional_goals: [],
+        other_preferences: []
+      };
+
       // Try to load profile from Jac backend
       if (FoodAuth.getJwt()) {
         FoodAuth.apiCall("/function/get_profile", {}, true).then(function (res) {
@@ -246,22 +259,38 @@
             var bp = res.data.result;
             if (bp.display_name && !displayName.value) displayName.value = bp.display_name;
             if (bp.habits && !habits.value) habits.value = bp.habits;
-            // Also update food prefs from backend
+            // Update food prefs from backend and re-render
             if (bp.cuisine_preferences && bp.cuisine_preferences.length) {
               localStorage.setItem("foodvision.userProfile", JSON.stringify(bp));
+              loadFoodPrefs();
             }
           }
         }).catch(function () {});
       }
 
       // Load food preferences from Meal Planner
-      (function loadFoodPrefs() {
+      function loadFoodPrefs() {
         var prefContent = document.getElementById("prefContent");
         var raw = localStorage.getItem("foodvision.userProfile");
         if (!raw) return;
         try {
           var fp = JSON.parse(raw);
           if (!fp) return;
+
+          function isLearned(field) {
+            var defaults = defaultProfile[field];
+            var current = fp[field];
+            if (!defaults || !current) return false;
+            if (typeof current === "string") return current !== defaults;
+            if (Array.isArray(current) && Array.isArray(defaults)) {
+              return JSON.stringify(current.slice().sort()) !== JSON.stringify(defaults.slice().sort());
+            }
+            return false;
+          }
+
+          function learnedBadge(field) {
+            return isLearned(field) ? ' <span style="font-size:.65rem;color:#1f9d55;font-weight:700;vertical-align:middle;">AI learned</span>' : '';
+          }
 
           function tagsHtml(arr) {
             if (!arr || !arr.length) return '<span class="pref-tag" style="opacity:.6;">None</span>';
@@ -270,18 +299,19 @@
 
           prefContent.innerHTML = [
             '<div class="pref-grid">',
-            '  <div class="pref-card"><div class="pref-label">Dietary Restrictions</div><div class="pref-tags">' + tagsHtml(fp.dietary_restrictions) + '</div></div>',
-            '  <div class="pref-card"><div class="pref-label">Allergies</div><div class="pref-tags">' + tagsHtml(fp.allergies) + '</div></div>',
-            '  <div class="pref-card"><div class="pref-label">Cuisine Preferences</div><div class="pref-tags">' + tagsHtml(fp.cuisine_preferences) + '</div></div>',
-            '  <div class="pref-card"><div class="pref-label">Flavor Preferences</div><div class="pref-tags">' + tagsHtml(fp.flavor_preferences) + '</div></div>',
-            '  <div class="pref-card"><div class="pref-label">Cooking Skill Level</div><div class="pref-value">' + (fp.cooking_skill_level || 'Unknown') + '</div></div>',
-            '  <div class="pref-card"><div class="pref-label">Available Equipment</div><div class="pref-tags">' + tagsHtml(fp.available_equipment) + '</div></div>',
-            '  <div class="pref-card"><div class="pref-label">Nutritional Goals</div><div class="pref-tags">' + tagsHtml(fp.nutritional_goals) + '</div></div>',
-            '  <div class="pref-card"><div class="pref-label">Disliked Foods</div><div class="pref-tags">' + tagsHtml(fp.disliked_foods) + '</div></div>',
+            '  <div class="pref-card"><div class="pref-label">Dietary Restrictions' + learnedBadge("dietary_restrictions") + '</div><div class="pref-tags">' + tagsHtml(fp.dietary_restrictions) + '</div></div>',
+            '  <div class="pref-card"><div class="pref-label">Allergies' + learnedBadge("allergies") + '</div><div class="pref-tags">' + tagsHtml(fp.allergies) + '</div></div>',
+            '  <div class="pref-card"><div class="pref-label">Cuisine Preferences' + learnedBadge("cuisine_preferences") + '</div><div class="pref-tags">' + tagsHtml(fp.cuisine_preferences) + '</div></div>',
+            '  <div class="pref-card"><div class="pref-label">Flavor Preferences' + learnedBadge("flavor_preferences") + '</div><div class="pref-tags">' + tagsHtml(fp.flavor_preferences) + '</div></div>',
+            '  <div class="pref-card"><div class="pref-label">Cooking Skill Level' + learnedBadge("cooking_skill_level") + '</div><div class="pref-value">' + (fp.cooking_skill_level || 'Unknown') + '</div></div>',
+            '  <div class="pref-card"><div class="pref-label">Available Equipment' + learnedBadge("available_equipment") + '</div><div class="pref-tags">' + tagsHtml(fp.available_equipment) + '</div></div>',
+            '  <div class="pref-card"><div class="pref-label">Nutritional Goals' + learnedBadge("nutritional_goals") + '</div><div class="pref-tags">' + tagsHtml(fp.nutritional_goals) + '</div></div>',
+            '  <div class="pref-card"><div class="pref-label">Disliked Foods' + learnedBadge("disliked_foods") + '</div><div class="pref-tags">' + tagsHtml(fp.disliked_foods) + '</div></div>',
             '</div>'
           ].join('');
         } catch (e) { }
-      })();
+      }
+      loadFoodPrefs();
 
       if (authBinding && typeof authBinding.refresh === "function") {
         authBinding.refresh();
