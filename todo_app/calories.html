@@ -680,9 +680,9 @@
       </div>
       <nav class="nav-links">
         <a class="nav-link" href="index.html">Home</a>
-        <a class="nav-link" href="delivery.html">Delivery</a>
         <a class="nav-link active" href="calories.html">Planner</a>
         <a class="nav-link" href="profile.html">Profile</a>
+        <a class="nav-link" href="delivery.html">Delivery</a>
       </nav>
       <button id="topAuthBtn" class="ghost-btn">Sign Up / Login</button>
     </header>
@@ -783,6 +783,50 @@
         nutritional_goals: [],
         other_preferences: []
       };
+
+      // Hydrate userProfile from the last-saved cache so repeat sessions
+      // don't lose learned preferences before the backend fetch lands.
+      try {
+        var cachedProfile = JSON.parse(localStorage.getItem("foodvision.userProfile") || "null");
+        if (cachedProfile && typeof cachedProfile === "object") {
+          Object.keys(userProfile).forEach(function (k) {
+            if (cachedProfile[k] !== undefined && cachedProfile[k] !== null) {
+              userProfile[k] = cachedProfile[k];
+            }
+          });
+          if (cachedProfile.ai_learned_fields) {
+            userProfile.ai_learned_fields = cachedProfile.ai_learned_fields;
+          }
+        }
+      } catch (e) { }
+
+      // When a JWT becomes available, refresh from the authoritative backend
+      // state so learned preferences reflect the latest evolve_profile output.
+      function syncProfileFromBackend() {
+        FoodAuth.apiCall("/function/get_profile", {}, true).then(function (res) {
+          if (res && res.ok && res.data && res.data.result) {
+            var bp = res.data.result;
+            ["dietary_restrictions", "allergies", "cuisine_preferences",
+             "flavor_preferences", "available_equipment", "nutritional_goals",
+             "disliked_foods", "other_preferences"].forEach(function (k) {
+              if (Array.isArray(bp[k])) userProfile[k] = bp[k];
+            });
+            if (bp.cooking_skill_level) userProfile.cooking_skill_level = bp.cooking_skill_level;
+            if (bp.ai_learned_fields) userProfile.ai_learned_fields = bp.ai_learned_fields;
+            try { localStorage.setItem("foodvision.userProfile", JSON.stringify(userProfile)); } catch (e) { }
+          }
+        }).catch(function () {});
+      }
+
+      if (FoodAuth.isAuthenticated()) {
+        if (FoodAuth.getJwt()) {
+          syncProfileFromBackend();
+        } else if (typeof FoodAuth.ready === "function") {
+          FoodAuth.ready(4000).then(function (jwt) {
+            if (jwt) syncProfileFromBackend();
+          });
+        }
+      }
 
       function fileToBase64(file) {
         return new Promise(function (resolve, reject) {
@@ -1092,6 +1136,11 @@
         leftStatus.textContent = "Loading meal history...";
         generateBtn.classList.add("loading");
         generateBtn.textContent = "Generating...";
+
+        // If logged in but JWT hasn't landed yet (post-login race), wait briefly.
+        if (FoodAuth.isAuthenticated() && !FoodAuth.getJwt() && typeof FoodAuth.ready === "function") {
+          try { await FoodAuth.ready(2500); } catch (e) { }
+        }
 
         // Fetch recent meal history and build summary for context. Also reused for evolve_profile below.
         var historySummary = "";

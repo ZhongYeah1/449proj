@@ -2,13 +2,16 @@
   var AUTH_KEY = "foodvision.auth.user";
   var JWT_KEY = "foodvision.jwt";
   var OTP_KEY = "foodvision.auth.otp";
+  var GUEST_ID_KEY = "foodvision.auth.guestid";
   var START_PAGE = "food-login.html";
   var HISTORY_NOTICE_KEY = "foodvision.notice.nohistory.seen";
   var API_BASE = window.FOODVISION_API || "http://localhost:8000";
 
+  // Use localStorage so JWT + user survive tab close / page refresh.
+  // This is what makes "log out → log in again → preferences still there" work.
   function readJSON(key) {
     try {
-      var raw = sessionStorage.getItem(key);
+      var raw = localStorage.getItem(key);
       return raw ? JSON.parse(raw) : null;
     } catch (err) {
       return null;
@@ -16,7 +19,7 @@
   }
 
   function writeJSON(key, value) {
-    sessionStorage.setItem(key, JSON.stringify(value));
+    localStorage.setItem(key, JSON.stringify(value));
   }
 
   function getUser() {
@@ -34,7 +37,45 @@
   }
 
   function getJwt() {
-    return sessionStorage.getItem(JWT_KEY) || "";
+    return localStorage.getItem(JWT_KEY) || "";
+  }
+
+  // --- async auth-ready coordination ---------------------------------------
+  // Pages that need to fetch profile data must wait for the backend JWT.
+  // We resolve `readyPromise` as soon as a JWT is in storage (either from a
+  // prior session, or after backendAuth completes during this session).
+  var readyResolve = null;
+  var readyPromise = new Promise(function (resolve) { readyResolve = resolve; });
+  if (getJwt()) {
+    readyResolve(getJwt());
+  }
+
+  function markReady() {
+    if (readyResolve) {
+      readyResolve(getJwt());
+      readyResolve = null;
+    }
+  }
+
+  // Returns a Promise<string|null>. Resolves with the JWT, or null if no
+  // login has been initiated within `timeoutMs`.
+  function ready(timeoutMs) {
+    if (getJwt()) return Promise.resolve(getJwt());
+    if (!isAuthenticated()) return Promise.resolve(null);
+    var t = typeof timeoutMs === "number" ? timeoutMs : 4000;
+    return new Promise(function (resolve) {
+      var done = false;
+      readyPromise.then(function (jwt) {
+        if (done) return;
+        done = true;
+        resolve(jwt || null);
+      });
+      setTimeout(function () {
+        if (done) return;
+        done = true;
+        resolve(getJwt() || null);
+      }, t);
+    });
   }
 
   // Call backend API (Jac server)
@@ -51,19 +92,22 @@
     }).then(function (r) { return r.json(); });
   }
 
-  // Try to register; if user exists, login instead
+  // Try to register; if user exists, login instead. Returns the login payload
+  // or null. Always resolves — never rejects — so login UI can chain off it.
   function backendAuth(username, password) {
     return apiCall("/user/register", { username: username, password: password })
       .then(function (res) {
-        if (res.ok && res.data && res.data.token) {
-          sessionStorage.setItem(JWT_KEY, res.data.token);
+        if (res && res.ok && res.data && res.data.token) {
+          localStorage.setItem(JWT_KEY, res.data.token);
+          markReady();
           return res.data;
         }
         // Registration failed (user exists?), try login
         return apiCall("/user/login", { username: username, password: password })
           .then(function (loginRes) {
-            if (loginRes.ok && loginRes.data && loginRes.data.token) {
-              sessionStorage.setItem(JWT_KEY, loginRes.data.token);
+            if (loginRes && loginRes.ok && loginRes.data && loginRes.data.token) {
+              localStorage.setItem(JWT_KEY, loginRes.data.token);
+              markReady();
               return loginRes.data;
             }
             return null;
@@ -78,8 +122,11 @@
       email: email,
       at: new Date().toISOString()
     });
-    // Async backend auth (fire-and-forget, won't block UI)
-    backendAuth(email, password || "default_pass");
+    // Reset the ready promise for this new session.
+    if (!readyResolve) {
+      readyPromise = new Promise(function (resolve) { readyResolve = resolve; });
+    }
+    return backendAuth(email, password || "default_pass");
   }
 
   function loginPhone(phone) {
@@ -88,23 +135,44 @@
       phone: phone,
       at: new Date().toISOString()
     });
-    backendAuth(phone, "phone_default_pass");
+    if (!readyResolve) {
+      readyPromise = new Promise(function (resolve) { readyResolve = resolve; });
+    }
+    return backendAuth(phone, "phone_default_pass");
   }
 
   function loginGuest() {
+    // Reuse a stable guest id so a returning guest lands on the same graph root.
+    var guestId = localStorage.getItem(GUEST_ID_KEY);
+    if (!guestId) {
+      guestId = "guest_" + Math.random().toString(36).slice(2, 10) + "_" + Date.now();
+      localStorage.setItem(GUEST_ID_KEY, guestId);
+    }
     writeJSON(AUTH_KEY, {
       mode: "guest",
       name: "Guest",
+      guestId: guestId,
       at: new Date().toISOString()
     });
-    var guestId = "guest_" + Date.now();
-    backendAuth(guestId, "guest_pass");
+    if (!readyResolve) {
+      readyPromise = new Promise(function (resolve) { readyResolve = resolve; });
+    }
+    return backendAuth(guestId, "guest_pass");
   }
 
   function logout() {
+    // Clear session-scope auth but keep the cached profile so preferences
+    // render immediately on the next login. Also keep the guest id so a
+    // returning guest reuses their same backend graph.
+    localStorage.removeItem(AUTH_KEY);
+    localStorage.removeItem(JWT_KEY);
+    localStorage.removeItem(OTP_KEY);
+    // Legacy sessionStorage cleanup (pre-switch installs may still have keys).
     sessionStorage.removeItem(AUTH_KEY);
     sessionStorage.removeItem(JWT_KEY);
     sessionStorage.removeItem(OTP_KEY);
+    // Reset the ready promise so the next login gets a fresh waiter.
+    readyPromise = new Promise(function (resolve) { readyResolve = resolve; });
   }
 
   function startPage() {
@@ -213,7 +281,7 @@
   }
 
   function clearOtp() {
-    sessionStorage.removeItem(OTP_KEY);
+    localStorage.removeItem(OTP_KEY);
   }
 
   function getReturnUrl() {
@@ -280,6 +348,7 @@
   window.FoodAuth = {
     getUser: getUser,
     getJwt: getJwt,
+    ready: ready,
     apiCall: apiCall,
     API_BASE: API_BASE,
     isAuthenticated: isAuthenticated,

@@ -3,223 +3,467 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>FoodVision AI | Home</title>
+  <title>FoodVision AI | Meal planning that learns from you</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Instrument+Serif&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="theme.css" />
   <style>
     .hero {
       display: grid;
-      gap: 20px;
-      grid-template-columns: 1.25fr .75fr;
+      grid-template-columns: 1.15fr 1fr;
+      gap: 40px;
       align-items: center;
+      padding: clamp(28px, 4vw, 48px) clamp(24px, 4vw, 44px);
+      overflow: hidden;
+      position: relative;
     }
 
-    .hero-eyebrow {
-      display: inline-block;
-      font-size: .8rem;
-      font-weight: 700;
-      letter-spacing: .12em;
-      text-transform: uppercase;
-      color: #ff6633;
-      background: #fff1e5;
-      padding: 6px 12px;
+    .hero::after {
+      content: "";
+      position: absolute;
+      right: -120px;
+      top: -80px;
+      width: 360px;
+      height: 360px;
       border-radius: 999px;
-      margin-bottom: 14px;
+      background: radial-gradient(circle at 30% 30%, rgba(255, 159, 67, 0.35), transparent 70%);
+      pointer-events: none;
     }
 
     .hero-title {
-      margin: 0 0 12px;
-      font-size: clamp(2rem, 3.4vw, 3rem);
-      line-height: 1.08;
-      letter-spacing: -0.02em;
-    }
-
-    .hero-title em {
-      font-style: normal;
-      color: #ff6633;
-      font-weight: 800;
-    }
-
-    .hero p.hero-sub {
-      font-size: 1.05rem;
-      color: #6f4a36;
-      line-height: 1.55;
-      margin: 0 0 6px;
-      max-width: 52ch;
-    }
-
-    .hero p.hero-fine {
-      font-size: .88rem;
-      color: #805941;
-      margin: 6px 0 0;
-    }
-
-    .cta-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
-
-    .demo-frame {
-      border-radius: 18px;
-      background: linear-gradient(145deg, #fff9f2, #ffe9d6);
-      border: 1px solid rgba(255, 255, 255, .95);
-      box-shadow: 0 20px 40px rgba(80, 40, 20, .12);
-      padding: 18px;
-      overflow: hidden;
-    }
-
-    .demo-frame .mock-bubble {
-      background: rgba(255, 255, 255, .92);
-      border-radius: 14px;
-      padding: 10px 12px;
-      margin-bottom: 8px;
-      box-shadow: 0 4px 10px rgba(80, 40, 20, .06);
-      font-size: .9rem;
-      color: #3d291e;
-    }
-
-    .demo-frame .mock-bubble.user {
-      background: linear-gradient(135deg, #ff6633, #ff9f43);
-      color: #fff;
-      margin-left: auto;
-      max-width: 82%;
-    }
-
-    .demo-frame .mock-bubble.ai {
-      margin-right: auto;
-      max-width: 88%;
-    }
-
-    .learned-pill {
-      display: inline-block;
-      font-size: .62rem;
-      color: #1f9d55;
+      margin: 14px 0 16px;
+      font-size: clamp(2.2rem, 4.4vw, 3.4rem);
+      line-height: 1.04;
+      letter-spacing: -0.03em;
       font-weight: 700;
-      background: #e6f4ea;
-      padding: 2px 8px;
+      color: #2b1b12;
+    }
+
+    .hero-title .serif {
+      font-family: "Instrument Serif", Georgia, serif;
+      font-style: italic;
+      font-weight: 400;
+      color: #ff6633;
+      letter-spacing: -0.01em;
+    }
+
+    .hero-sub {
+      font-size: 1.08rem;
+      color: #4a3222;
+      line-height: 1.58;
+      margin: 0 0 22px;
+      max-width: 48ch;
+    }
+
+    .hero-sub strong {
+      color: #2b1b12;
+      font-weight: 600;
+    }
+
+    .cta-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .session-chip {
+      margin-top: 22px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85rem;
+      color: #7a5236;
+      background: rgba(255, 255, 255, 0.7);
+      border: 1px solid var(--line);
+      padding: 6px 12px;
       border-radius: 999px;
-      vertical-align: middle;
-      margin-left: 6px;
-      letter-spacing: .04em;
+    }
+
+    .session-chip .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: #c6903c;
+    }
+
+    .session-chip.in .dot { background: #1f9d55; }
+
+    /* Recipe card preview */
+    .preview-wrap {
+      position: relative;
+      perspective: 1400px;
+      padding: 20px;
+    }
+
+    .preview-card {
+      background: #fff;
+      border-radius: 24px;
+      box-shadow:
+        0 30px 60px rgba(80, 40, 20, 0.2),
+        0 6px 16px rgba(80, 40, 20, 0.08);
+      overflow: hidden;
+      transform: rotate(-2deg);
+      transition: transform .4s ease;
+      border: 1px solid rgba(0, 0, 0, 0.04);
+    }
+
+    .preview-card:hover {
+      transform: rotate(0deg) translateY(-4px);
+    }
+
+    .preview-hero {
+      height: 160px;
+      background:
+        radial-gradient(circle at 30% 40%, #ff8a3d 0%, transparent 55%),
+        radial-gradient(circle at 80% 70%, #ffb877 0%, transparent 60%),
+        linear-gradient(135deg, #ff6633, #ffb877);
+      position: relative;
+      display: grid;
+      place-items: center;
+      font-size: 3.6rem;
+    }
+
+    .preview-hero::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, transparent 55%, rgba(0, 0, 0, 0.18));
+    }
+
+    .preview-hero .chip {
+      position: absolute;
+      right: 12px;
+      top: 12px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      background: rgba(255, 255, 255, 0.94);
+      color: #7a3d1f;
+      padding: 5px 10px;
+      border-radius: 999px;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
+    }
+
+    .preview-body {
+      padding: 18px 20px 20px;
+    }
+
+    .preview-body h4 {
+      margin: 0 0 2px;
+      font-size: 1.35rem;
+      letter-spacing: -0.02em;
+      color: #2b1b12;
+    }
+
+    .preview-body .sub {
+      margin: 0 0 14px;
+      font-size: 0.88rem;
+      color: #8a5f44;
+    }
+
+    .preview-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+
+    .preview-tags span {
+      font-size: 0.76rem;
+      font-weight: 600;
+      color: #7a3d1f;
+      background: #fff1e5;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 102, 51, 0.14);
+    }
+
+    .preview-nutrition {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      padding: 10px;
+      background: #fff8f0;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 102, 51, 0.1);
+      margin-bottom: 14px;
+    }
+
+    .preview-nutrition div {
+      text-align: center;
+      font-size: 0.78rem;
+      color: #8a5f44;
+      font-weight: 600;
+    }
+
+    .preview-nutrition div strong {
+      display: block;
+      font-size: 1rem;
+      color: #2b1b12;
+      font-weight: 700;
+      font-family: "JetBrains Mono", monospace;
+      letter-spacing: -0.03em;
+    }
+
+    .learned-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      background: linear-gradient(135deg, #e6f7ec, #d4efd9);
+      border: 1px solid rgba(31, 157, 85, 0.2);
+      border-radius: 12px;
+    }
+
+    .learned-card .txt {
+      font-size: 0.82rem;
+      color: #0f6a34;
+      line-height: 1.4;
+    }
+
+    .learned-card .txt strong {
+      display: block;
+      font-size: 0.86rem;
+      color: #0a5226;
+    }
+
+    .preview-badge {
+      position: absolute;
+      left: -12px;
+      bottom: 38px;
+      background: #fff;
+      padding: 10px 14px;
+      border-radius: 12px;
+      box-shadow: 0 16px 28px rgba(80, 40, 20, 0.2);
+      font-size: 0.82rem;
+      color: #2b1b12;
+      font-weight: 600;
+      transform: rotate(-4deg);
+      border: 1px solid rgba(0, 0, 0, 0.05);
+      max-width: 180px;
+      line-height: 1.3;
+    }
+
+    .preview-badge .k {
+      display: block;
+      font-size: 0.65rem;
+      font-weight: 800;
+      color: var(--accent);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 2px;
+    }
+
+    /* Metric strip */
+    .metric-strip {
+      margin-top: 22px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
+      backdrop-filter: blur(10px);
+    }
+
+    .metric {
+      padding: 20px 22px;
+      border-right: 1px solid var(--line);
+    }
+
+    .metric:last-child { border-right: none; }
+
+    .metric .value {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 1.9rem;
+      font-weight: 600;
+      color: var(--accent);
+      letter-spacing: -0.04em;
+      line-height: 1;
+    }
+
+    .metric .label {
+      margin-top: 6px;
+      font-size: 0.8rem;
+      color: var(--muted);
+      font-weight: 500;
+      line-height: 1.4;
+    }
+
+    /* How it learns */
+    .how-intro {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 16px;
+      align-items: end;
+      margin-bottom: 20px;
+    }
+
+    .how-intro h2 {
+      margin: 6px 0 4px;
     }
 
     .how-steps {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 14px;
-      margin-top: 10px;
     }
 
     .how-step {
-      background: rgba(255, 255, 255, .88);
-      border: 1px solid rgba(255, 255, 255, .95);
-      border-radius: 14px;
-      padding: 16px;
+      background: var(--card-strong);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 22px;
       position: relative;
+      overflow: hidden;
+    }
+
+    .how-step::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 3px;
+      width: 46px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      border-radius: 0 3px 3px 0;
     }
 
     .how-step .step-num {
-      font-size: .72rem;
-      font-weight: 800;
-      color: #ff6633;
-      letter-spacing: .16em;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: 0.16em;
+      margin-bottom: 10px;
+      display: block;
     }
 
     .how-step h4 {
-      margin: 4px 0 8px;
-      color: #3d291e;
-      font-size: 1.05rem;
+      margin: 0 0 8px;
+      color: #2b1b12;
+      font-size: 1.08rem;
+      letter-spacing: -0.01em;
     }
 
     .how-step p {
       margin: 0;
-      color: #6f4a36;
-      font-size: .88rem;
-      line-height: 1.5;
+      color: #4a3222;
+      font-size: 0.92rem;
+      line-height: 1.6;
     }
 
-    @media (max-width: 900px) {
-      .how-steps { grid-template-columns: 1fr; }
+    .how-step .icon {
+      font-size: 1.6rem;
+      margin-bottom: 12px;
+      display: inline-grid;
+      place-items: center;
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: #fff1e5;
+      border: 1px solid rgba(255, 102, 51, 0.18);
     }
 
-    .cta-primary {
-      animation: ctaPulse 2.6s ease-in-out infinite;
+    /* Feature cards */
+    .feature-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
     }
 
-    .cta-primary:hover {
-      animation-play-state: paused;
-      transform: translateY(-2px) scale(1.08) rotate(-1deg);
+    .feature {
+      display: flex;
+      flex-direction: column;
+      text-decoration: none;
+      color: inherit;
+      background: var(--card-strong);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 22px;
+      box-shadow: var(--shadow-sm);
+      transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+      position: relative;
     }
 
-    .cta-secondary:hover {
-      transform: translateY(-2px) scale(1.08);
-      animation: ctaSwing .9s ease-in-out infinite;
-    }
-
-    .nav-auth-btn:hover {
-      animation: authWiggle .9s ease-in-out infinite;
-    }
-
-    .feature-card {
-      transition: transform .2s ease, box-shadow .2s ease;
-      cursor: pointer;
-    }
-
-    .feature-card:hover {
+    .feature:hover {
       transform: translateY(-3px);
-      box-shadow: 0 18px 30px rgba(80,40,20,.16);
+      box-shadow: var(--shadow);
+      border-color: rgba(255, 102, 51, 0.28);
     }
 
-    .feature-a:hover { transform: translateY(-4px) rotate(-1deg); }
-    .feature-b:hover { transform: translateY(-4px) scale(1.02); }
-    .feature-c:hover { transform: translateY(-4px) rotate(1deg); }
-
-    .press-flash {
-      animation: pressFlash .32s ease;
+    .feature .badge {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      color: #fff;
+      display: grid;
+      place-items: center;
+      font-size: 1.3rem;
+      box-shadow: 0 10px 20px rgba(255, 102, 51, 0.26);
+      margin-bottom: 16px;
     }
 
-    .mouse-glow {
-      position: fixed;
-      width: 280px;
-      height: 280px;
-      border-radius: 999px;
-      pointer-events: none;
-      z-index: 0;
-      background: radial-gradient(circle, rgba(255,255,255,.55) 0%, rgba(255,255,255,0) 65%);
-      transform: translate(-50%, -50%);
-      opacity: .6;
+    .feature h3 {
+      margin: 0 0 6px;
+      font-size: 1.12rem;
+      letter-spacing: -0.01em;
     }
 
-    @media (max-width: 900px) {
-      .hero { grid-template-columns: 1fr; }
+    .feature p {
+      margin: 0 0 14px;
+      color: #6f4a36;
+      font-size: 0.92rem;
+      line-height: 1.55;
+      flex: 1;
     }
 
-    @keyframes ctaPulse {
-      0%, 100% { box-shadow: 0 10px 22px rgba(255,102,51,.28); }
-      50% { box-shadow: 0 18px 30px rgba(255,102,51,.38); }
+    .feature .arrow {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--accent);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: gap .18s ease;
     }
 
-    @keyframes ctaSwing {
-      0% { transform: translateY(-2px) scale(1.08) rotate(0deg); }
-      35% { transform: translateY(-2px) scale(1.08) rotate(-2deg); }
-      70% { transform: translateY(-2px) scale(1.08) rotate(2deg); }
-      100% { transform: translateY(-2px) scale(1.08) rotate(0deg); }
+    .feature:hover .arrow { gap: 10px; }
+
+    /* Final CTA */
+    .final-cta {
+      text-align: center;
+      padding: clamp(32px, 4vw, 48px);
     }
 
-    @keyframes authWiggle {
-      0%, 100% { transform: translateY(-2px) scale(1.05) rotate(0deg); }
-      25% { transform: translateY(-2px) scale(1.05) rotate(-2deg); }
-      75% { transform: translateY(-2px) scale(1.05) rotate(2deg); }
+    .final-cta h2 {
+      font-size: clamp(1.5rem, 2.4vw, 2rem);
+      margin: 0 0 10px;
     }
 
-    @keyframes pressFlash {
-      from { filter: brightness(1.2); }
-      to { filter: brightness(1); }
+    .final-cta p {
+      color: #6f4a36;
+      margin: 0 0 22px;
+      font-size: 1rem;
+    }
+
+    @media (max-width: 960px) {
+      .hero { grid-template-columns: 1fr; gap: 28px; }
+      .metric-strip { grid-template-columns: repeat(2, 1fr); }
+      .metric { border-right: none; border-bottom: 1px solid var(--line); }
+      .metric:nth-child(odd) { border-right: 1px solid var(--line); }
+      .metric:nth-last-child(-n+2) { border-bottom: none; }
+      .how-steps, .feature-row { grid-template-columns: 1fr; }
+      .how-intro { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
-  <div class="mouse-glow" id="mouseGlow"></div>
   <div class="bg-orbs" aria-hidden="true"><div class="orb"></div><div class="orb"></div><div class="orb"></div><div class="orb"></div></div>
 
   <div class="page">
@@ -230,73 +474,159 @@
       </div>
       <nav class="nav-links">
         <a class="nav-link active" href="index.html">Home</a>
-        <a class="nav-link" href="delivery.html">Delivery</a>
         <a class="nav-link" href="calories.html">Planner</a>
         <a class="nav-link" href="profile.html">Profile</a>
+        <a class="nav-link" href="delivery.html">Delivery</a>
       </nav>
-      <button id="topAuthBtn" class="ghost-btn nav-auth-btn">Sign Up / Login</button>
+      <button id="topAuthBtn" class="ghost-btn">Sign Up / Login</button>
     </header>
 
     <section class="panel hero">
       <div>
-        <span class="hero-eyebrow">Adaptive meal planner</span>
-        <h1 class="hero-title">It's 7pm. You open the fridge.<br/><em>We know what you should cook.</em></h1>
-        <p class="hero-sub">Snap a photo. Get a recipe tailored to what the AI sees <em style="color:#ff6633;font-style:normal;">and</em> what it has learned about you from every meal you've generated.</p>
-        <p class="hero-fine">No 40-field onboarding. Your profile builds itself.</p>
+        <span class="eyebrow">Adaptive meal planner</span>
+        <h1 class="hero-title">
+          It's 7pm. You open the fridge.<br/>
+          <span class="serif">We know what you should cook.</span>
+        </h1>
+        <p class="hero-sub">
+          Snap a photo of your fridge. Get a recipe shaped by <strong>what the AI sees</strong>
+          and <strong>what it has learned</strong> from every meal you've generated. No 40-field
+          onboarding — your profile builds itself as you cook.
+        </p>
         <div class="cta-row">
-          <a class="pill-btn cta-primary" href="calories.html" style="text-decoration:none; display:inline-block;">Start Planning →</a>
-          <a class="ghost-btn cta-secondary" href="delivery.html" style="text-decoration:none; display:inline-block;">Browse Restaurants</a>
+          <a class="pill-btn" href="calories.html" style="text-decoration:none;">Start Planning →</a>
+          <a class="ghost-btn" href="delivery.html" style="text-decoration:none;">Browse Restaurants</a>
         </div>
-        <p class="hint" id="sessionInfo" style="margin-top:18px;">Session status updates here.</p>
+        <div class="session-chip" id="sessionChip">
+          <span class="dot"></span>
+          <span id="sessionInfo">Current mode: Visitor (not signed in).</span>
+        </div>
       </div>
 
-      <div class="demo-frame" aria-hidden="true">
-        <div class="mock-bubble user">Dinner ideas? Photo of my fridge.</div>
-        <div class="mock-bubble ai"><strong>Kimchi Jjigae</strong><br/><span style="color:#6f4a36;font-size:.82rem;">Spicy Korean stew with tofu, based on what you've cooked recently.</span></div>
-        <div class="mock-bubble ai" style="background:#e6f4ea;color:#1f6b3c;">
-          Profile updated <span class="learned-pill">AI learned</span><br/>
-          <span style="font-size:.82rem;">cuisine_preferences + Korean · flavor_preferences + spicy</span>
+      <div class="preview-wrap" aria-hidden="true">
+        <div class="preview-card">
+          <div class="preview-hero">
+            <span>🍲</span>
+            <span class="chip">AI Pick</span>
+          </div>
+          <div class="preview-body">
+            <h4>Kimchi Jjigae</h4>
+            <p class="sub">Spicy Korean stew — based on your last 3 meals.</p>
+            <div class="preview-tags">
+              <span>Korean</span>
+              <span>Spicy</span>
+              <span>35 min</span>
+              <span>Serves 2</span>
+            </div>
+            <div class="preview-nutrition">
+              <div><strong>420</strong>kcal</div>
+              <div><strong>28g</strong>protein</div>
+              <div><strong>36g</strong>carbs</div>
+              <div><strong>18g</strong>fat</div>
+            </div>
+            <div class="learned-card">
+              <span style="font-size:1.2rem;">🧠</span>
+              <div class="txt">
+                <strong>Profile updated</strong>
+                cuisine + Korean · flavor + spicy
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="preview-badge">
+          <span class="k">AI learned</span>
+          3 Korean meals in your history
         </div>
       </div>
     </section>
 
+    <div class="metric-strip">
+      <div class="metric">
+        <div class="value">14d</div>
+        <div class="label">Rolling meal memory fed into every prompt</div>
+      </div>
+      <div class="metric">
+        <div class="value">0</div>
+        <div class="label">Preference fields to fill out by hand</div>
+      </div>
+      <div class="metric">
+        <div class="value">+∞</div>
+        <div class="label">Additive-only updates — no preference ever deleted</div>
+      </div>
+      <div class="metric">
+        <div class="value">1×</div>
+        <div class="label">Real Qwen3-VL-32B call per recipe, no cache tricks</div>
+      </div>
+    </div>
+
     <section class="panel">
-      <h2 style="margin: 0 0 4px;">How it learns</h2>
-      <p class="hint" style="margin:0 0 14px;">Three things happen every time you cook something.</p>
+      <div class="how-intro">
+        <div>
+          <span class="eyebrow">How it learns</span>
+          <h2>Three moments, every time you cook</h2>
+          <p class="hint" style="margin:0; max-width:62ch;">
+            No settings page. No preference form. The app gets smarter as a side effect of
+            using it, not as a prerequisite.
+          </p>
+        </div>
+      </div>
       <div class="how-steps">
         <div class="how-step">
-          <div class="step-num">STEP 01</div>
+          <div class="icon">📸</div>
+          <span class="step-num">STEP 01</span>
           <h4>Photo → recipe</h4>
-          <p>Qwen3-VL recognizes ingredients in your image and proposes a dish with prep steps and nutrition tailored to your current profile.</p>
+          <p>Qwen3-VL reads the ingredients in your image and proposes a dish with prep steps and nutrition tailored to your current profile.</p>
         </div>
         <div class="how-step">
-          <div class="step-num">STEP 02</div>
+          <div class="icon">🕑</div>
+          <span class="step-num">STEP 02</span>
           <h4>Remembers 14 days</h4>
-          <p>Every meal is saved to your personal graph. The next generation includes a summary of your last two weeks so the AI avoids repeating dishes.</p>
+          <p>Every meal is saved to your personal graph. The next generation includes a summary of your last two weeks so the AI avoids repeats.</p>
         </div>
         <div class="how-step">
-          <div class="step-num">STEP 03</div>
+          <div class="icon">🧠</div>
+          <span class="step-num">STEP 03</span>
           <h4>Profile evolves</h4>
-          <p>A second AI pass reads your history and additively updates your preferences. The <span class="learned-pill">AI learned</span> badge shows which ones came from patterns, not from a form.</p>
+          <p>A second AI pass reads your history and <em>additively</em> updates your preferences. The <span class="learned-pill">AI learned</span> badge shows which ones came from patterns.</p>
         </div>
       </div>
     </section>
 
     <section class="panel">
-      <h2 style="margin-bottom:10px;">Jump in</h2>
-      <div class="grid grid-3">
-        <a class="card feature-card feature-b" href="calories.html" style="text-decoration:none; color:inherit;">
-          <h3>📊 Meal Planner</h3>
-          <p class="hint">Upload a food photo, describe your craving, get a structured recipe. This is the part that learns.</p>
+      <div class="how-intro">
+        <div>
+          <span class="eyebrow">Jump in</span>
+          <h2>Pick where to start</h2>
+        </div>
+      </div>
+      <div class="feature-row">
+        <a class="feature" href="calories.html">
+          <div class="badge">📊</div>
+          <h3>Meal Planner</h3>
+          <p>Upload a photo, describe your craving, get a structured recipe. This is the part that learns from you.</p>
+          <span class="arrow">Open planner →</span>
         </a>
-        <a class="card feature-card feature-c" href="profile.html" style="text-decoration:none; color:inherit;">
-          <h3>👤 Profile</h3>
-          <p class="hint">See which preferences came from you and which were learned by the AI, pill by pill.</p>
+        <a class="feature" href="profile.html">
+          <div class="badge">👤</div>
+          <h3>Your Profile</h3>
+          <p>See which preferences came from you and which were learned by the AI, pill by pill, with provenance.</p>
+          <span class="arrow">View profile →</span>
         </a>
-        <a class="card feature-card feature-a" href="delivery.html" style="text-decoration:none; color:inherit;">
-          <h3>🛵 Delivery Hub</h3>
-          <p class="hint">Ann Arbor restaurants pulled live from OpenStreetMap, sorted by your current location.</p>
+        <a class="feature" href="delivery.html">
+          <div class="badge">🛵</div>
+          <h3>Delivery Hub</h3>
+          <p>Ann Arbor restaurants pulled live from OpenStreetMap, sorted by your current location.</p>
+          <span class="arrow">Browse nearby →</span>
         </a>
+      </div>
+    </section>
+
+    <section class="panel final-cta">
+      <span class="eyebrow">Ready when you are</span>
+      <h2>Your fridge, your taste, one photo away.</h2>
+      <p>No onboarding. No preference form. Just cook.</p>
+      <div class="cta-row" style="justify-content:center;">
+        <a class="pill-btn" href="calories.html" style="text-decoration:none;">Start Planning →</a>
       </div>
     </section>
 
@@ -307,24 +637,24 @@
     (function () {
       var user = FoodAuth.getUser();
       var sessionInfo = document.getElementById("sessionInfo");
-      var mouseGlow = document.getElementById("mouseGlow");
+      var sessionChip = document.getElementById("sessionChip");
       var authBinding = FoodAuth.wireTopbarAuth("topAuthBtn", refreshSessionText);
 
       FoodAuth.showNoHistoryPopup();
 
       function refreshSessionText() {
         user = FoodAuth.getUser();
+        sessionChip.classList.toggle("in", !!user);
         if (!user) {
           sessionInfo.textContent = "Current mode: Visitor (not signed in).";
           return;
         }
-
         if (user.mode === "guest") {
-          sessionInfo.textContent = "Current mode: Guest session.";
+          sessionInfo.textContent = "Guest session active.";
         } else if (user.mode === "phone") {
-          sessionInfo.textContent = "Current mode: Signed in by phone (" + user.phone + ").";
+          sessionInfo.textContent = "Signed in — " + user.phone;
         } else {
-          sessionInfo.textContent = "Current mode: Signed in by email (" + user.email + ").";
+          sessionInfo.textContent = "Signed in — " + user.email;
         }
       }
 
@@ -333,19 +663,6 @@
       if (authBinding && typeof authBinding.refresh === "function") {
         authBinding.refresh();
       }
-
-      document.addEventListener("mousemove", function (e) {
-        mouseGlow.style.left = e.clientX + "px";
-        mouseGlow.style.top = e.clientY + "px";
-      });
-
-      document.querySelectorAll("button, .cta-row a").forEach(function (el) {
-        el.addEventListener("click", function () {
-          el.classList.remove("press-flash");
-          void el.offsetWidth;
-          el.classList.add("press-flash");
-        });
-      });
     })();
   </script>
 </body>
