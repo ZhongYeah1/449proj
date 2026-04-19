@@ -286,7 +286,6 @@
         </div>
         <div class="actions">
           <button id="saveBtn" class="pill-btn">Save Record</button>
-          <button id="payBtn" class="ghost-btn">Pay for Pro Plan</button>
         </div>
         <div id="status" class="status" style="margin-top:10px;"></div>
       </div>
@@ -330,7 +329,6 @@
       var email = document.getElementById("email");
       var habits = document.getElementById("habits");
       var saveBtn = document.getElementById("saveBtn");
-      var payBtn = document.getElementById("payBtn");
       var status = document.getElementById("status");
       var authBinding = FoodAuth.wireTopbarAuth("topAuthBtn", refreshHeader);
       var PROFILE_KEY = "foodvision.profile.data";
@@ -398,10 +396,6 @@
         }
         updatedV.textContent = formatStamp(payload.updatedAt);
         setStatus("Profile saved.", "success");
-      });
-
-      payBtn.addEventListener("click", function () {
-        alert("Pro plan enabled (demo). Guest access is allowed in this template.");
       });
 
       refreshHeader();
