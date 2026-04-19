@@ -784,10 +784,18 @@
         other_preferences: []
       };
 
+      // Per-account cache key — prevents one user's preferences from leaking
+      // into another user's view on the same browser.
+      function profileCacheKey() {
+        return FoodAuth.scopedKey("foodvision.userProfile");
+      }
+
       // Hydrate userProfile from the last-saved cache so repeat sessions
       // don't lose learned preferences before the backend fetch lands.
+      // Only read a cache that belongs to the CURRENT signed-in user.
       try {
-        var cachedProfile = JSON.parse(localStorage.getItem("foodvision.userProfile") || "null");
+        var pk = profileCacheKey();
+        var cachedProfile = pk ? JSON.parse(localStorage.getItem(pk) || "null") : null;
         if (cachedProfile && typeof cachedProfile === "object") {
           Object.keys(userProfile).forEach(function (k) {
             if (cachedProfile[k] !== undefined && cachedProfile[k] !== null) {
@@ -813,7 +821,10 @@
             });
             if (bp.cooking_skill_level) userProfile.cooking_skill_level = bp.cooking_skill_level;
             if (bp.ai_learned_fields) userProfile.ai_learned_fields = bp.ai_learned_fields;
-            try { localStorage.setItem("foodvision.userProfile", JSON.stringify(userProfile)); } catch (e) { }
+            var pk = profileCacheKey();
+            if (pk) {
+              try { localStorage.setItem(pk, JSON.stringify(userProfile)); } catch (e) { }
+            }
           }
         }).catch(function () {});
       }
@@ -1180,6 +1191,22 @@
           } catch (e) { console.warn("Could not fetch meal history:", e); }
         }
 
+        // Re-hydrate from localStorage so edits made on the Profile page
+        // (or in another tab) flow into the Qwen prompt.
+        try {
+          var pk = profileCacheKey();
+          var raw = pk ? localStorage.getItem(pk) : null;
+          if (raw) {
+            var cached = JSON.parse(raw);
+            Object.keys(userProfile).forEach(function (k) {
+              if (Array.isArray(cached[k]) || typeof cached[k] === "string") {
+                userProfile[k] = cached[k];
+              }
+            });
+            if (cached.ai_learned_fields) userProfile.ai_learned_fields = cached.ai_learned_fields;
+          }
+        } catch (e) {}
+
         // Attach history to profile for the AI
         var profileWithHistory = JSON.parse(JSON.stringify(userProfile));
         if (historySummary) {
@@ -1232,8 +1259,9 @@
           var recommendation = result.recommendation || {};
           renderStructuredOutput(userProfile, recommendation);
 
-          // Persist updated userProfile so the Profile page can display it
-          try { localStorage.setItem("foodvision.userProfile", JSON.stringify(userProfile)); } catch (e) { }
+          // Persist updated userProfile (per-account) so the Profile page can display it
+          var _pkGen = profileCacheKey();
+          if (_pkGen) { try { localStorage.setItem(_pkGen, JSON.stringify(userProfile)); } catch (e) { } }
 
           resultCard.classList.remove("reveal-pop");
           void resultCard.offsetWidth;
@@ -1282,7 +1310,8 @@
                 });
                 if (newProfile.cooking_skill_level) userProfile.cooking_skill_level = newProfile.cooking_skill_level;
                 userProfile.ai_learned_fields = newProfile.ai_learned_fields || evolved.learned_fields || [];
-                try { localStorage.setItem("foodvision.userProfile", JSON.stringify(userProfile)); } catch (e) { }
+                var _pkEvo = profileCacheKey();
+                if (_pkEvo) { try { localStorage.setItem(_pkEvo, JSON.stringify(userProfile)); } catch (e) { } }
                 var changed = Object.keys(evolved.changes || {}).join(", ");
                 addBubble("assistant", "Profile updated" + (changed ? " (" + changed + ")" : "") + ": learned from your meal patterns.");
                 leftStatus.textContent = "Done. Profile evolved from your history.";

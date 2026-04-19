@@ -213,6 +213,38 @@
       color: var(--muted);
     }
 
+    .pref-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .pref-edit-input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 8px 10px;
+      font: inherit;
+      font-size: 0.92rem;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: #2b1b12;
+      outline: none;
+      transition: border-color .15s ease, box-shadow .15s ease;
+    }
+
+    .pref-edit-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(255, 102, 51, 0.12);
+    }
+
+    .pref-edit-hint {
+      margin-top: 6px;
+      font-size: 0.72rem;
+      color: var(--muted);
+    }
+
     @media (max-width: 860px) {
       .profile-head { grid-template-columns: 1fr; }
       .pref-grid { grid-template-columns: 1fr; }
@@ -301,11 +333,17 @@
             came from you directly.
           </p>
         </div>
-        <div class="legend">
-          <span class="learned-pill">AI learned</span>
-          <span>= backend inferred from your cooking patterns</span>
+        <div class="pref-actions">
+          <div class="legend">
+            <span class="learned-pill">AI learned</span>
+            <span>= backend inferred</span>
+          </div>
+          <button id="editPrefsBtn" class="pill-btn" type="button">✎ Edit preferences</button>
+          <button id="savePrefsBtn" class="pill-btn" type="button" style="display:none;">Save</button>
+          <button id="cancelPrefsBtn" class="ghost-btn" type="button" style="display:none;">Cancel</button>
         </div>
       </div>
+      <div id="prefStatus" class="status" style="margin-bottom:10px;"></div>
       <div id="prefContent">
         <div class="pref-empty">
           <strong style="display:block; margin-bottom:6px; color:#2b1b12;">No food profile yet</strong>
@@ -330,8 +368,17 @@
       var habits = document.getElementById("habits");
       var saveBtn = document.getElementById("saveBtn");
       var status = document.getElementById("status");
+      var editPrefsBtn   = document.getElementById("editPrefsBtn");
+      var savePrefsBtn   = document.getElementById("savePrefsBtn");
+      var cancelPrefsBtn = document.getElementById("cancelPrefsBtn");
+      var prefStatus     = document.getElementById("prefStatus");
+      var editMode = false;
       var authBinding = FoodAuth.wireTopbarAuth("topAuthBtn", refreshHeader);
-      var PROFILE_KEY = "foodvision.profile.data";
+
+      // Per-account localStorage keys — prevents one account from seeing
+      // another account's form data / cached preferences on the same browser.
+      function formCacheKey() { return FoodAuth.scopedKey("foodvision.profile.data"); }
+      function prefsCacheKey() { return FoodAuth.scopedKey("foodvision.userProfile"); }
 
       FoodAuth.showNoHistoryPopup();
 
@@ -370,9 +417,18 @@
       }
 
       function loadProfile() {
+        var key = formCacheKey();
+        if (!key) { updatedV.textContent = "Never"; return; }
         try {
-          var p = JSON.parse(localStorage.getItem(PROFILE_KEY) || "null");
-          if (!p) { updatedV.textContent = "Never"; return; }
+          var p = JSON.parse(localStorage.getItem(key) || "null");
+          if (!p) {
+            // Fresh account on this browser — clear any lingering form fields.
+            displayName.value = "";
+            email.value = (user && user.email) || "";
+            habits.value = "";
+            updatedV.textContent = "Never";
+            return;
+          }
           displayName.value = p.displayName || "";
           email.value = p.email || ((user && user.email) || "");
           habits.value = p.habits || "";
@@ -387,7 +443,8 @@
           habits: habits.value.trim(),
           updatedAt: new Date().toISOString()
         };
-        localStorage.setItem(PROFILE_KEY, JSON.stringify(payload));
+        var key = formCacheKey();
+        if (key) localStorage.setItem(key, JSON.stringify(payload));
         if (FoodAuth.getJwt()) {
           FoodAuth.apiCall("/function/update_profile", {
             display_name: payload.displayName,
@@ -413,7 +470,8 @@
             var bp = res.data.result;
             if (bp.display_name && !displayName.value) displayName.value = bp.display_name;
             if (bp.habits && !habits.value) habits.value = bp.habits;
-            localStorage.setItem("foodvision.userProfile", JSON.stringify(bp));
+            var pk = prefsCacheKey();
+            if (pk) localStorage.setItem(pk, JSON.stringify(bp));
             loadFoodPrefs();
           }
         }).catch(function () {});
@@ -429,51 +487,216 @@
         }
       }
 
+      function renderEmptyPrefs() {
+        var prefContent = document.getElementById("prefContent");
+        prefContent.innerHTML =
+          '<div class="pref-empty">' +
+            '<strong style="display:block; margin-bottom:6px; color:#2b1b12;">No food profile yet</strong>' +
+            '<span>Use the <a href="calories.html">Meal Planner</a> to generate a recipe — your preferences will appear here automatically.</span>' +
+          '</div>';
+      }
+
+      var LIST_FIELDS_SPEC = [
+        { field: "dietary_restrictions", label: "Dietary Restrictions" },
+        { field: "allergies",           label: "Allergies" },
+        { field: "cuisine_preferences", label: "Cuisine Preferences" },
+        { field: "flavor_preferences",  label: "Flavor Preferences" },
+        { field: "available_equipment", label: "Available Equipment" },
+        { field: "nutritional_goals",   label: "Nutritional Goals" },
+        { field: "disliked_foods",      label: "Disliked Foods" }
+      ];
+      var SKILL_OPTIONS = ["Beginner", "Intermediate", "Advanced", "Expert"];
+
+      function setPrefStatus(msg, type) {
+        prefStatus.textContent = msg || "";
+        prefStatus.className = "status" + (type ? " " + type : "");
+      }
+
+      function updateEditControls() {
+        editPrefsBtn.style.display   = editMode ? "none" : "inline-block";
+        savePrefsBtn.style.display   = editMode ? "inline-block" : "none";
+        cancelPrefsBtn.style.display = editMode ? "inline-block" : "none";
+      }
+
+      function getFoodPrefs() {
+        var pk = prefsCacheKey();
+        var raw = pk ? localStorage.getItem(pk) : null;
+        if (!raw) return null;
+        try { return JSON.parse(raw); } catch (e) { return null; }
+      }
+
+      function escAttr(s) {
+        return String(s == null ? "" : s)
+          .replace(/&/g, "&amp;").replace(/"/g, "&quot;")
+          .replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      }
+
+      function renderEditCard(field, label, value, isList, learnedSet) {
+        var isLearned = !!learnedSet[field];
+        var learnedBadge = isLearned ? '<span class="learned-pill">AI learned</span>' : '';
+        var learnedCls   = isLearned ? ' learned' : '';
+        var body;
+        if (isList) {
+          var joined = (value || []).join(", ");
+          var hint = isLearned
+            ? 'Your edits override the AI-inferred value. Separate with commas.'
+            : 'Separate multiple values with commas.';
+          body = '<input id="edit_' + field + '" class="pref-edit-input" type="text" value="' + escAttr(joined) + '" placeholder="e.g. Korean, Italian" />' +
+                 '<div class="pref-edit-hint">' + hint + '</div>';
+        } else {
+          var current = value || "Intermediate";
+          var opts = SKILL_OPTIONS.map(function (o) {
+            return '<option value="' + escAttr(o) + '"' + (o === current ? " selected" : "") + '>' + escAttr(o) + '</option>';
+          }).join("");
+          body = '<select id="edit_' + field + '" class="pref-edit-input">' + opts + '</select>';
+        }
+        return '<div class="pref-card' + learnedCls + '">' +
+          '<div class="pref-label">' + label + learnedBadge + '</div>' +
+          body + '</div>';
+      }
+
       function loadFoodPrefs() {
         var prefContent = document.getElementById("prefContent");
-        var raw = localStorage.getItem("foodvision.userProfile");
-        if (!raw) return;
-        try {
-          var fp = JSON.parse(raw);
-          if (!fp) return;
+        var fp = getFoodPrefs();
 
-          var learnedSet = {};
-          (fp.ai_learned_fields || []).forEach(function (k) { learnedSet[k] = true; });
+        if (editMode) {
+          var source = fp || {};
+          var learnedSetE = {};
+          (source.ai_learned_fields || []).forEach(function (k) { learnedSetE[k] = true; });
+          var editCards = LIST_FIELDS_SPEC.map(function (s) {
+            return renderEditCard(s.field, s.label, source[s.field], true, learnedSetE);
+          });
+          editCards.splice(4, 0, renderEditCard("cooking_skill_level", "Cooking Skill Level", source.cooking_skill_level, false, learnedSetE));
+          prefContent.innerHTML = '<div class="pref-grid">' + editCards.join("") + '</div>';
+          updateEditControls();
+          return;
+        }
 
-          function learnedBadge(field) {
-            return learnedSet[field] ? '<span class="learned-pill">AI learned</span>' : '';
-          }
+        if (!fp) { renderEmptyPrefs(); updateEditControls(); return; }
 
-          function learnedClass(field) {
-            return learnedSet[field] ? ' learned' : '';
-          }
+        var learnedSet = {};
+        (fp.ai_learned_fields || []).forEach(function (k) { learnedSet[k] = true; });
 
-          function tagsHtml(arr) {
-            if (!arr || !arr.length) return '<span class="pref-tag none">None</span>';
-            return arr.map(function (v) { return '<span class="pref-tag">' + v + '</span>'; }).join('');
-          }
+        function learnedBadge(field) { return learnedSet[field] ? '<span class="learned-pill">AI learned</span>' : ''; }
+        function learnedClass(field) { return learnedSet[field] ? ' learned' : ''; }
+        function tagsHtml(arr) {
+          if (!arr || !arr.length) return '<span class="pref-tag none">None</span>';
+          return arr.map(function (v) { return '<span class="pref-tag">' + v + '</span>'; }).join('');
+        }
+        function card(field, label, value, isTags) {
+          var inner = isTags
+            ? '<div class="pref-tags">' + tagsHtml(value) + '</div>'
+            : '<div class="pref-value">' + (value || 'Unknown') + '</div>';
+          return '<div class="pref-card' + learnedClass(field) + '">' +
+            '<div class="pref-label">' + label + learnedBadge(field) + '</div>' +
+            inner + '</div>';
+        }
 
-          function card(field, label, value, isTags) {
-            var inner = isTags
-              ? '<div class="pref-tags">' + tagsHtml(value) + '</div>'
-              : '<div class="pref-value">' + (value || 'Unknown') + '</div>';
-            return '<div class="pref-card' + learnedClass(field) + '">' +
-              '<div class="pref-label">' + label + learnedBadge(field) + '</div>' +
-              inner + '</div>';
-          }
+        prefContent.innerHTML = '<div class="pref-grid">' + [
+          card("dietary_restrictions", "Dietary Restrictions", fp.dietary_restrictions, true),
+          card("allergies", "Allergies", fp.allergies, true),
+          card("cuisine_preferences", "Cuisine Preferences", fp.cuisine_preferences, true),
+          card("flavor_preferences", "Flavor Preferences", fp.flavor_preferences, true),
+          card("cooking_skill_level", "Cooking Skill Level", fp.cooking_skill_level, false),
+          card("available_equipment", "Available Equipment", fp.available_equipment, true),
+          card("nutritional_goals", "Nutritional Goals", fp.nutritional_goals, true),
+          card("disliked_foods", "Disliked Foods", fp.disliked_foods, true)
+        ].join('') + '</div>';
 
-          prefContent.innerHTML = '<div class="pref-grid">' + [
-            card("dietary_restrictions", "Dietary Restrictions", fp.dietary_restrictions, true),
-            card("allergies", "Allergies", fp.allergies, true),
-            card("cuisine_preferences", "Cuisine Preferences", fp.cuisine_preferences, true),
-            card("flavor_preferences", "Flavor Preferences", fp.flavor_preferences, true),
-            card("cooking_skill_level", "Cooking Skill Level", fp.cooking_skill_level, false),
-            card("available_equipment", "Available Equipment", fp.available_equipment, true),
-            card("nutritional_goals", "Nutritional Goals", fp.nutritional_goals, true),
-            card("disliked_foods", "Disliked Foods", fp.disliked_foods, true)
-          ].join('') + '</div>';
-        } catch (e) { }
+        updateEditControls();
       }
+
+      function parseListInput(val) {
+        return String(val || "")
+          .split(",")
+          .map(function (s) { return s.trim(); })
+          .filter(function (s) { return s.length > 0; });
+      }
+
+      editPrefsBtn.addEventListener("click", function () {
+        if (!FoodAuth.isAuthenticated()) {
+          setPrefStatus("Sign in to edit your preferences.", "error");
+          return;
+        }
+        editMode = true;
+        setPrefStatus("");
+        loadFoodPrefs();
+      });
+
+      cancelPrefsBtn.addEventListener("click", function () {
+        editMode = false;
+        setPrefStatus("");
+        loadFoodPrefs();
+      });
+
+      savePrefsBtn.addEventListener("click", function () {
+        if (!FoodAuth.isAuthenticated()) {
+          setPrefStatus("Sign in to save preferences.", "error");
+          return;
+        }
+        var before = getFoodPrefs() || {};
+        var payload = {};
+        var clearedFields = [];
+        LIST_FIELDS_SPEC.forEach(function (s) {
+          var el = document.getElementById("edit_" + s.field);
+          if (!el) return;
+          var next = parseListInput(el.value);
+          var prev = Array.isArray(before[s.field]) ? before[s.field] : [];
+          // Backend treats [] as "no change", so warn the user if they tried to clear.
+          if (next.length === 0 && prev.length > 0) {
+            clearedFields.push(s.label);
+          } else if (next.length > 0) {
+            payload[s.field] = next;
+          }
+        });
+        var skillEl = document.getElementById("edit_cooking_skill_level");
+        if (skillEl && skillEl.value) payload.cooking_skill_level = skillEl.value;
+
+        if (clearedFields.length) {
+          setPrefStatus("Keep at least one value for: " + clearedFields.join(", "), "error");
+          return;
+        }
+
+        savePrefsBtn.disabled = true;
+        setPrefStatus("Saving…");
+
+        function describeErr(res) {
+          if (!res) return "no response from server";
+          if (res.error) {
+            if (typeof res.error === "string") return res.error;
+            if (res.error.message) return res.error.message;
+            if (res.error.code)    return res.error.code;
+          }
+          return "server rejected update";
+        }
+
+        FoodAuth.apiCall("/function/update_profile", payload, true).then(function (res) {
+          console.log("update_profile response:", res);
+          if (!res || res.ok === false) {
+            var msg = describeErr(res);
+            if (/UNAUTHORIZED|401/i.test(msg)) {
+              throw new Error("session expired — please sign in again");
+            }
+            throw new Error(msg);
+          }
+          return FoodAuth.apiCall("/function/get_profile", {}, true);
+        }).then(function (res) {
+          console.log("get_profile response:", res);
+          var bp = res && res.data && res.data.result;
+          if (bp) {
+            var pk = prefsCacheKey();
+            if (pk) localStorage.setItem(pk, JSON.stringify(bp));
+          }
+          editMode = false;
+          savePrefsBtn.disabled = false;
+          loadFoodPrefs();
+          setPrefStatus("Preferences updated.", "success");
+        }).catch(function (err) {
+          console.error("save prefs failed:", err);
+          savePrefsBtn.disabled = false;
+          setPrefStatus("Could not save preferences: " + (err && err.message ? err.message : "unknown error"), "error");
+        });
+      });
 
       if (authBinding && typeof authBinding.refresh === "function") {
         authBinding.refresh();

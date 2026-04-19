@@ -490,13 +490,13 @@
         setStatus(label + " Waiting for backend...", "success");
         emailSubmit.disabled = true;
         guestBtn.disabled = true;
-        var safety = setTimeout(goToAppPage, 1800);
         Promise.resolve(promise).then(function () {
-          clearTimeout(safety);
           goToAppPage();
-        }).catch(function () {
-          clearTimeout(safety);
-          goToAppPage();
+        }).catch(function (err) {
+          emailSubmit.disabled = false;
+          guestBtn.disabled = false;
+          var msg = (err && err.message) ? err.message : "Login failed. Please try again.";
+          setStatus(msg, "error");
         });
       }
 

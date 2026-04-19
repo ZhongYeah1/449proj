@@ -40,6 +40,39 @@
     return localStorage.getItem(JWT_KEY) || "";
   }
 
+  // Stable per-account identifier used to namespace client-side caches so
+  // that two accounts sharing the same browser don't see each other's data.
+  // Returns null when no one is signed in.
+  function userKey() {
+    var u = getUser();
+    if (!u) return null;
+    if (u.mode === "email" && u.email) return "email:" + u.email.toLowerCase();
+    if (u.mode === "phone" && u.phone) return "phone:" + u.phone;
+    if (u.mode === "guest" && u.guestId) return "guest:" + u.guestId;
+    return null;
+  }
+
+  // Build a localStorage key that is scoped to the current user. Returns
+  // null when there is no user, so callers can skip reads/writes.
+  function scopedKey(base) {
+    var k = userKey();
+    return k ? base + "::" + k : null;
+  }
+
+  // One-time cleanup of pre-namespacing cache keys. The old keys were shared
+  // across all accounts on this browser, so we cannot safely migrate them —
+  // we just drop them. Any user who still needs the data will get it back
+  // from the backend on their next login.
+  (function migrateLegacyKeys() {
+    var flag = "foodvision.cache.namespaced.v1";
+    if (localStorage.getItem(flag)) return;
+    try {
+      localStorage.removeItem("foodvision.userProfile");
+      localStorage.removeItem("foodvision.profile.data");
+    } catch (e) {}
+    localStorage.setItem(flag, "1");
+  })();
+
   // --- async auth-ready coordination ---------------------------------------
   // Pages that need to fetch profile data must wait for the backend JWT.
   // We resolve `readyPromise` as soon as a JWT is in storage (either from a
@@ -92,9 +125,18 @@
     }).then(function (r) { return r.json(); });
   }
 
-  // Try to register; if user exists, login instead. Returns the login payload
-  // or null. Always resolves — never rejects — so login UI can chain off it.
+  // Try to register; if user exists, login instead. Resolves with the payload
+  // containing the JWT on success. Rejects with a readable error when both
+  // register and login fail — login UIs rely on that to keep the modal open.
   function backendAuth(username, password) {
+    function describe(res) {
+      if (res && res.error) {
+        if (typeof res.error === "string") return res.error;
+        if (res.error.message) return res.error.message;
+        if (res.error.code)    return res.error.code;
+      }
+      return null;
+    }
     return apiCall("/user/register", { username: username, password: password })
       .then(function (res) {
         if (res && res.ok && res.data && res.data.token) {
@@ -102,7 +144,7 @@
           markReady();
           return res.data;
         }
-        // Registration failed (user exists?), try login
+        // Registration failed (user probably exists), try login.
         return apiCall("/user/login", { username: username, password: password })
           .then(function (loginRes) {
             if (loginRes && loginRes.ok && loginRes.data && loginRes.data.token) {
@@ -110,10 +152,20 @@
               markReady();
               return loginRes.data;
             }
-            return null;
+            var msg = describe(loginRes) || describe(res);
+            if (msg && /unauthor/i.test(msg)) {
+              msg = "Wrong password for this account.";
+            }
+            throw new Error(msg || "Login failed. Please try again.");
           });
-      })
-      .catch(function () { return null; });
+      });
+  }
+
+  function rollbackAuth() {
+    // Backend auth failed — drop the locally-written user object so
+    // isAuthenticated() reflects reality and the login modal can prompt again.
+    try { localStorage.removeItem(AUTH_KEY); } catch (e) {}
+    try { localStorage.removeItem(JWT_KEY); } catch (e) {}
   }
 
   function loginEmail(email, password) {
@@ -126,7 +178,8 @@
     if (!readyResolve) {
       readyPromise = new Promise(function (resolve) { readyResolve = resolve; });
     }
-    return backendAuth(email, password || "default_pass");
+    return backendAuth(email, password || "default_pass")
+      .catch(function (err) { rollbackAuth(); throw err; });
   }
 
   function loginPhone(phone) {
@@ -138,7 +191,8 @@
     if (!readyResolve) {
       readyPromise = new Promise(function (resolve) { readyResolve = resolve; });
     }
-    return backendAuth(phone, "phone_default_pass");
+    return backendAuth(phone, "phone_default_pass")
+      .catch(function (err) { rollbackAuth(); throw err; });
   }
 
   function loginGuest() {
@@ -157,7 +211,8 @@
     if (!readyResolve) {
       readyPromise = new Promise(function (resolve) { readyResolve = resolve; });
     }
-    return backendAuth(guestId, "guest_pass");
+    return backendAuth(guestId, "guest_pass")
+      .catch(function (err) { rollbackAuth(); throw err; });
   }
 
   function logout() {
@@ -349,6 +404,8 @@
     getUser: getUser,
     getJwt: getJwt,
     ready: ready,
+    userKey: userKey,
+    scopedKey: scopedKey,
     apiCall: apiCall,
     API_BASE: API_BASE,
     isAuthenticated: isAuthenticated,

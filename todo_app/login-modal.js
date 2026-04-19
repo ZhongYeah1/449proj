@@ -83,28 +83,31 @@
     btns.forEach(function (b) { b.disabled = !!busy; });
   }
 
-  // Await the login promise, but with a cap — if the backend is slow we still
-  // close the modal so the user isn't stuck. The rest of the app uses
-  // FoodAuth.ready() to wait for the JWT before fetching profile data.
+  // Await the login promise. On success, close the modal. On failure, keep it
+  // open and show the real backend error so the user knows their credentials
+  // didn't work. We cap the wait only for successful slow backends.
   function finalizeAuth(promise) {
     setButtonsBusy(true);
     setStatus("Signing in...", "pending");
+    var settled = false;
     var safetyTimer = setTimeout(function () {
+      if (settled) return;
       setButtonsBusy(false);
-      setStatus("Login continuing in background.", "success");
-      completeLogin(currentOptions && currentOptions.onSuccess);
-    }, 1800);
+      setStatus("Still signing in… you can wait or retry.", "pending");
+    }, 3500);
 
     Promise.resolve(promise).then(function () {
+      settled = true;
       clearTimeout(safetyTimer);
       setButtonsBusy(false);
       setStatus("Login successful.", "success");
       completeLogin(currentOptions && currentOptions.onSuccess);
-    }).catch(function () {
+    }).catch(function (err) {
+      settled = true;
       clearTimeout(safetyTimer);
       setButtonsBusy(false);
-      setStatus("Login continuing in background.", "success");
-      completeLogin(currentOptions && currentOptions.onSuccess);
+      var msg = (err && err.message) ? err.message : "Login failed. Please try again.";
+      setStatus(msg, "error");
     });
   }
 
