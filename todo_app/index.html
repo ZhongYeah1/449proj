@@ -1,635 +1,1199 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>FoodVision AI | Meal planning that learns from you</title>
+  <title>FoodVision AI | Adaptive Meal Planner</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Instrument+Serif&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&amp;family=Space+Grotesk:wght@500;700&amp;display=swap"
+    rel="stylesheet" />
   <link rel="stylesheet" href="theme.css" />
   <style>
-    .hero {
-      display: grid;
-      grid-template-columns: 1.15fr 1fr;
-      gap: 40px;
-      align-items: center;
-      padding: clamp(28px, 4vw, 48px) clamp(24px, 4vw, 44px);
-      overflow: hidden;
-      position: relative;
+    :root {
+      --landing-bg: #f5efe6;
+      --landing-surface: rgba(255, 250, 244, 0.9);
+      --landing-surface-strong: #fffaf5;
+      --landing-ink: #1e1714;
+      --landing-muted: #6f6159;
+      --landing-line: rgba(42, 29, 22, 0.12);
+      --landing-dark: #1b1715;
+      --landing-dark-soft: #2a231f;
+      --landing-accent: #ff7a38;
+      --landing-accent-soft: #ffd1b5;
+      --landing-green: #1b8d58;
+      --landing-shadow: 0 24px 70px rgba(42, 29, 22, 0.12);
+      --landing-radius: 28px;
     }
 
-    .hero::after {
-      content: "";
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body.landing-body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--landing-ink);
+      font-family: "Outfit", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(255, 176, 127, 0.22), transparent 30%),
+        radial-gradient(circle at top right, rgba(255, 219, 181, 0.5), transparent 28%),
+        linear-gradient(180deg, #fbf6ef 0%, var(--landing-bg) 46%, #f3ece2 100%);
+    }
+
+    a {
+      color: inherit;
+    }
+
+    .landing-shell {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .landing-grid {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+    }
+
+    .landing-noise,
+    .landing-noise::before,
+    .landing-noise::after {
       position: absolute;
-      right: -120px;
-      top: -80px;
+      border-radius: 999px;
+      pointer-events: none;
+      filter: blur(8px);
+    }
+
+    .landing-noise {
+      inset: 0;
+      z-index: 0;
+    }
+
+    .landing-noise::before {
+      content: "";
       width: 360px;
       height: 360px;
-      border-radius: 999px;
-      background: radial-gradient(circle at 30% 30%, rgba(255, 159, 67, 0.35), transparent 70%);
-      pointer-events: none;
+      top: 64px;
+      right: -100px;
+      background: rgba(255, 138, 84, 0.2);
     }
 
-    .hero-title {
-      margin: 14px 0 16px;
-      font-size: clamp(2.2rem, 4.4vw, 3.4rem);
-      line-height: 1.04;
-      letter-spacing: -0.03em;
-      font-weight: 700;
-      color: #2b1b12;
+    .landing-noise::after {
+      content: "";
+      width: 420px;
+      height: 420px;
+      left: -160px;
+      top: 420px;
+      background: rgba(255, 221, 197, 0.44);
     }
 
-    .hero-title .serif {
-      font-family: "Instrument Serif", Georgia, serif;
-      font-style: italic;
-      font-weight: 400;
-      color: #ff6633;
-      letter-spacing: -0.01em;
+    .landing-nav-wrap {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      padding: 16px 0;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      transition: background-color 0.25s ease, box-shadow 0.25s ease;
     }
 
-    .hero-sub {
-      font-size: 1.08rem;
-      color: #4a3222;
-      line-height: 1.58;
-      margin: 0 0 22px;
-      max-width: 48ch;
+    .landing-nav-wrap.scrolled {
+      background: rgba(245, 239, 230, 0.86);
+      box-shadow: 0 10px 30px rgba(42, 29, 22, 0.08);
     }
 
-    .hero-sub strong {
-      color: #2b1b12;
-      font-weight: 600;
-    }
-
-    .cta-row {
+    .landing-nav {
       display: flex;
-      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 16px 20px;
+      border: 1px solid rgba(255, 255, 255, 0.65);
+      border-radius: 22px;
+      background: rgba(255, 250, 244, 0.72);
+      box-shadow: 0 12px 36px rgba(42, 29, 22, 0.08);
+    }
+
+    .landing-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      flex-shrink: 0;
+    }
+
+    .landing-brand-mark {
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      color: #fff;
+      font-family: "Space Grotesk", sans-serif;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--landing-accent), #ffae53);
+      box-shadow: 0 14px 30px rgba(255, 122, 56, 0.32);
+    }
+
+    .landing-brand-text strong,
+    .landing-nav-link,
+    .landing-kicker,
+    .landing-stat-label,
+    .landing-section-kicker,
+    .landing-bullet-label,
+    .landing-cta-note {
+      letter-spacing: 0.02em;
+    }
+
+    .landing-brand-text strong {
+      display: block;
+      font-size: 1rem;
+      line-height: 1.1;
+    }
+
+    .landing-brand-text span {
+      display: block;
+      color: var(--landing-muted);
+      font-size: 0.82rem;
+    }
+
+    .landing-nav-links,
+    .landing-nav-actions,
+    .landing-hero-actions,
+    .landing-pill-row,
+    .landing-stats,
+    .landing-step-list,
+    .landing-metric-grid,
+    .landing-footer-links {
+      display: flex;
+      align-items: center;
+      gap: 12px;
       flex-wrap: wrap;
     }
 
-    .session-chip {
-      margin-top: 22px;
+    .landing-nav-link {
+      font-size: 0.95rem;
+      font-weight: 600;
+      text-decoration: none;
+      color: var(--landing-muted);
+      transition: color 0.18s ease;
+    }
+
+    .landing-nav-link:hover {
+      color: var(--landing-ink);
+    }
+
+    .landing-btn-primary,
+    .landing-btn-secondary,
+    .landing-btn-ghost {
+      border: none;
+      border-radius: 999px;
+      font-family: inherit;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+    }
+
+    .landing-btn-primary {
+      padding: 14px 20px;
+      color: #fff;
+      background: linear-gradient(135deg, var(--landing-accent), #ffa14d);
+      box-shadow: 0 16px 28px rgba(255, 122, 56, 0.28);
+    }
+
+    .landing-btn-secondary {
+      padding: 14px 20px;
+      color: var(--landing-ink);
+      background: rgba(255, 255, 255, 0.84);
+      border: 1px solid rgba(42, 29, 22, 0.08);
+    }
+
+    .landing-btn-ghost {
+      padding: 10px 16px;
+      color: var(--landing-ink);
+      background: rgba(255, 255, 255, 0.7);
+      border: 1px solid rgba(42, 29, 22, 0.1);
+    }
+
+    .landing-btn-primary:hover,
+    .landing-btn-secondary:hover,
+    .landing-btn-ghost:hover {
+      transform: translateY(-2px);
+    }
+
+    .landing-btn-primary:hover {
+      box-shadow: 0 22px 34px rgba(255, 122, 56, 0.3);
+    }
+
+    .landing-hero {
+      position: relative;
+      z-index: 1;
+      padding: 52px 0 28px;
+    }
+
+    .landing-hero-card {
+      display: grid;
+      grid-template-columns: minmax(0, 1.08fr) minmax(320px, 0.92fr);
+      gap: 28px;
+      padding: clamp(24px, 4vw, 42px);
+      border-radius: 36px;
+      background:
+        radial-gradient(circle at top right, rgba(255, 152, 102, 0.18), transparent 26%),
+        linear-gradient(135deg, var(--landing-dark), var(--landing-dark-soft));
+      color: #fff9f3;
+      box-shadow: 0 28px 90px rgba(24, 19, 16, 0.22);
+      overflow: hidden;
+    }
+
+    .landing-kicker,
+    .landing-section-kicker {
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      font-size: 0.85rem;
-      color: #7a5236;
-      background: rgba(255, 255, 255, 0.7);
-      border: 1px solid var(--line);
-      padding: 6px 12px;
+      padding: 7px 13px;
       border-radius: 999px;
-    }
-
-    .session-chip .dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 999px;
-      background: #c6903c;
-    }
-
-    .session-chip.in .dot { background: #1f9d55; }
-
-    /* Recipe card preview */
-    .preview-wrap {
-      position: relative;
-      perspective: 1400px;
-      padding: 20px;
-    }
-
-    .preview-card {
-      background: #fff;
-      border-radius: 24px;
-      box-shadow:
-        0 30px 60px rgba(80, 40, 20, 0.2),
-        0 6px 16px rgba(80, 40, 20, 0.08);
-      overflow: hidden;
-      transform: rotate(-2deg);
-      transition: transform .4s ease;
-      border: 1px solid rgba(0, 0, 0, 0.04);
-    }
-
-    .preview-card:hover {
-      transform: rotate(0deg) translateY(-4px);
-    }
-
-    .preview-hero {
-      height: 160px;
-      background:
-        radial-gradient(circle at 30% 40%, #ff8a3d 0%, transparent 55%),
-        radial-gradient(circle at 80% 70%, #ffb877 0%, transparent 60%),
-        linear-gradient(135deg, #ff6633, #ffb877);
-      position: relative;
-      display: grid;
-      place-items: center;
-      font-size: 3.6rem;
-    }
-
-    .preview-hero::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(180deg, transparent 55%, rgba(0, 0, 0, 0.18));
-    }
-
-    .preview-hero .chip {
-      position: absolute;
-      right: 12px;
-      top: 12px;
-      font-size: 0.7rem;
-      font-weight: 700;
-      background: rgba(255, 255, 255, 0.94);
-      color: #7a3d1f;
-      padding: 5px 10px;
-      border-radius: 999px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-
-    .preview-body {
-      padding: 18px 20px 20px;
-    }
-
-    .preview-body h4 {
-      margin: 0 0 2px;
-      font-size: 1.35rem;
-      letter-spacing: -0.02em;
-      color: #2b1b12;
-    }
-
-    .preview-body .sub {
-      margin: 0 0 14px;
-      font-size: 0.88rem;
-      color: #8a5f44;
-    }
-
-    .preview-tags {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin-bottom: 14px;
-    }
-
-    .preview-tags span {
-      font-size: 0.76rem;
-      font-weight: 600;
-      color: #7a3d1f;
-      background: #fff1e5;
-      padding: 4px 10px;
-      border-radius: 999px;
-      border: 1px solid rgba(255, 102, 51, 0.14);
-    }
-
-    .preview-nutrition {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 8px;
-      padding: 10px;
-      background: #fff8f0;
-      border-radius: 12px;
-      border: 1px solid rgba(255, 102, 51, 0.1);
-      margin-bottom: 14px;
-    }
-
-    .preview-nutrition div {
-      text-align: center;
       font-size: 0.78rem;
-      color: #8a5f44;
-      font-weight: 600;
-    }
-
-    .preview-nutrition div strong {
-      display: block;
-      font-size: 1rem;
-      color: #2b1b12;
       font-weight: 700;
-      font-family: "JetBrains Mono", monospace;
-      letter-spacing: -0.03em;
-    }
-
-    .learned-card {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 12px;
-      background: linear-gradient(135deg, #e6f7ec, #d4efd9);
-      border: 1px solid rgba(31, 157, 85, 0.2);
-      border-radius: 12px;
-    }
-
-    .learned-card .txt {
-      font-size: 0.82rem;
-      color: #0f6a34;
-      line-height: 1.4;
-    }
-
-    .learned-card .txt strong {
-      display: block;
-      font-size: 0.86rem;
-      color: #0a5226;
-    }
-
-    .preview-badge {
-      position: absolute;
-      left: -12px;
-      bottom: 38px;
-      background: #fff;
-      padding: 10px 14px;
-      border-radius: 12px;
-      box-shadow: 0 16px 28px rgba(80, 40, 20, 0.2);
-      font-size: 0.82rem;
-      color: #2b1b12;
-      font-weight: 600;
-      transform: rotate(-4deg);
-      border: 1px solid rgba(0, 0, 0, 0.05);
-      max-width: 180px;
-      line-height: 1.3;
-    }
-
-    .preview-badge .k {
-      display: block;
-      font-size: 0.65rem;
-      font-weight: 800;
-      color: var(--accent);
-      letter-spacing: 0.12em;
       text-transform: uppercase;
-      margin-bottom: 2px;
     }
 
-    /* Metric strip */
-    .metric-strip {
-      margin-top: 22px;
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 0;
-      background: var(--card);
-      border: 1px solid var(--line);
-      border-radius: 22px;
-      box-shadow: var(--shadow-sm);
-      overflow: hidden;
-      backdrop-filter: blur(10px);
+    .landing-kicker {
+      background: rgba(255, 249, 243, 0.1);
+      border: 1px solid rgba(255, 249, 243, 0.14);
+      margin-bottom: 18px;
     }
 
-    .metric {
-      padding: 20px 22px;
-      border-right: 1px solid var(--line);
+    .landing-hero-copy h1,
+    .landing-section-head h2,
+    .landing-cta-panel h2,
+    .landing-footer-brand {
+      font-family: "Space Grotesk", sans-serif;
     }
 
-    .metric:last-child { border-right: none; }
-
-    .metric .value {
-      font-family: "JetBrains Mono", monospace;
-      font-size: 1.9rem;
-      font-weight: 600;
-      color: var(--accent);
-      letter-spacing: -0.04em;
-      line-height: 1;
-    }
-
-    .metric .label {
-      margin-top: 6px;
-      font-size: 0.8rem;
-      color: var(--muted);
-      font-weight: 500;
-      line-height: 1.4;
-    }
-
-    /* How it learns */
-    .how-intro {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 16px;
-      align-items: end;
-      margin-bottom: 20px;
-    }
-
-    .how-intro h2 {
-      margin: 6px 0 4px;
-    }
-
-    .how-steps {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 14px;
-    }
-
-    .how-step {
-      background: var(--card-strong);
-      border: 1px solid var(--line);
-      border-radius: 16px;
-      padding: 22px;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .how-step::before {
-      content: "";
-      position: absolute;
-      top: 0;
-      left: 0;
-      height: 3px;
-      width: 46px;
-      background: linear-gradient(90deg, var(--accent), var(--accent-2));
-      border-radius: 0 3px 3px 0;
-    }
-
-    .how-step .step-num {
-      font-family: "JetBrains Mono", monospace;
-      font-size: 0.7rem;
-      font-weight: 700;
-      color: var(--accent);
-      letter-spacing: 0.16em;
-      margin-bottom: 10px;
-      display: block;
-    }
-
-    .how-step h4 {
-      margin: 0 0 8px;
-      color: #2b1b12;
-      font-size: 1.08rem;
-      letter-spacing: -0.01em;
-    }
-
-    .how-step p {
+    .landing-hero-copy h1 {
       margin: 0;
-      color: #4a3222;
+      font-size: clamp(2.6rem, 6vw, 4.9rem);
+      line-height: 0.98;
+      letter-spacing: -0.05em;
+      max-width: 11ch;
+    }
+
+    .landing-hero-copy h1 span {
+      color: #ffb487;
+    }
+
+    .landing-hero-copy p {
+      margin: 20px 0 0;
+      max-width: 56ch;
+      color: rgba(255, 249, 243, 0.78);
+      line-height: 1.75;
+      font-size: 1.03rem;
+    }
+
+    .landing-hero-actions {
+      margin: 28px 0 18px;
+    }
+
+    .landing-pill {
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: rgba(255, 249, 243, 0.08);
+      border: 1px solid rgba(255, 249, 243, 0.12);
+      font-size: 0.88rem;
+      color: rgba(255, 249, 243, 0.84);
+    }
+
+    .landing-session {
+      margin-top: 20px;
       font-size: 0.92rem;
-      line-height: 1.6;
+      color: rgba(255, 249, 243, 0.72);
     }
 
-    .how-step .icon {
-      font-size: 1.6rem;
-      margin-bottom: 12px;
-      display: inline-grid;
-      place-items: center;
-      width: 44px;
-      height: 44px;
-      border-radius: 12px;
-      background: #fff1e5;
-      border: 1px solid rgba(255, 102, 51, 0.18);
-    }
-
-    /* Feature cards */
-    .feature-row {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 14px;
-    }
-
-    .feature {
+    .landing-hero-panel {
+      position: relative;
+      align-self: stretch;
       display: flex;
       flex-direction: column;
-      text-decoration: none;
-      color: inherit;
-      background: var(--card-strong);
-      border: 1px solid var(--line);
-      border-radius: 16px;
-      padding: 22px;
-      box-shadow: var(--shadow-sm);
-      transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
-      position: relative;
+      gap: 18px;
+      padding: 18px;
+      border-radius: 28px;
+      background: rgba(255, 249, 243, 0.06);
+      border: 1px solid rgba(255, 249, 243, 0.12);
+      backdrop-filter: blur(8px);
     }
 
-    .feature:hover {
-      transform: translateY(-3px);
-      box-shadow: var(--shadow);
-      border-color: rgba(255, 102, 51, 0.28);
+    .landing-panel-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
     }
 
-    .feature .badge {
-      width: 48px;
-      height: 48px;
-      border-radius: 14px;
-      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    .landing-panel-title {
+      font-size: 1rem;
+      font-weight: 700;
+      margin: 0;
+    }
+
+    .landing-live-pill {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #12271a;
+      background: #b7f7d1;
+      border-radius: 999px;
+      padding: 6px 10px;
+    }
+
+    .landing-chat {
+      display: grid;
+      gap: 10px;
+    }
+
+    .landing-chat-bubble {
+      max-width: 88%;
+      border-radius: 18px;
+      padding: 14px 14px 13px;
+      font-size: 0.92rem;
+      line-height: 1.5;
+    }
+
+    .landing-chat-bubble.user {
+      margin-left: auto;
+      background: linear-gradient(135deg, var(--landing-accent), #ffb15d);
       color: #fff;
+    }
+
+    .landing-chat-bubble.ai {
+      background: rgba(255, 249, 243, 0.9);
+      color: var(--landing-ink);
+    }
+
+    .landing-chat-bubble.ai.success {
+      background: rgba(183, 247, 209, 0.18);
+      color: #d9ffea;
+      border: 1px solid rgba(183, 247, 209, 0.2);
+    }
+
+    .landing-stats {
+      margin-top: auto;
+      gap: 10px;
+    }
+
+    .landing-stat {
+      flex: 1 1 120px;
+      padding: 12px 14px;
+      border-radius: 18px;
+      background: rgba(255, 249, 243, 0.08);
+      border: 1px solid rgba(255, 249, 243, 0.08);
+    }
+
+    .landing-stat strong {
+      display: block;
+      font-size: 1.2rem;
+      margin-bottom: 4px;
+    }
+
+    .landing-stat-label {
+      font-size: 0.82rem;
+      color: rgba(255, 249, 243, 0.68);
+    }
+
+    .landing-section {
+      position: relative;
+      z-index: 1;
+      padding: 76px 0 0;
+    }
+
+    .landing-section-head {
+      margin-bottom: 28px;
+    }
+
+    .landing-section-kicker {
+      color: var(--landing-accent);
+      background: rgba(255, 122, 56, 0.1);
+      margin-bottom: 14px;
+    }
+
+    .landing-section-head h2 {
+      margin: 0 0 12px;
+      font-size: clamp(2rem, 4vw, 3rem);
+      line-height: 1.04;
+      letter-spacing: -0.05em;
+    }
+
+    .landing-section-head p {
+      margin: 0;
+      max-width: 62ch;
+      color: var(--landing-muted);
+      line-height: 1.72;
+      font-size: 1rem;
+    }
+
+    .landing-feature-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .landing-feature-card,
+    .landing-storyboard,
+    .landing-data-card,
+    .landing-cta-panel {
+      border-radius: var(--landing-radius);
+      box-shadow: var(--landing-shadow);
+    }
+
+    .landing-feature-card {
+      padding: 24px;
+      background: var(--landing-surface);
+      border: 1px solid rgba(255, 255, 255, 0.8);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .landing-feature-card:hover,
+    .landing-data-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 28px 76px rgba(42, 29, 22, 0.14);
+    }
+
+    .landing-feature-icon {
+      width: 54px;
+      height: 54px;
       display: grid;
       place-items: center;
-      font-size: 1.3rem;
-      box-shadow: 0 10px 20px rgba(255, 102, 51, 0.26);
+      border-radius: 18px;
+      background: linear-gradient(135deg, rgba(255, 122, 56, 0.16), rgba(255, 177, 124, 0.28));
+      font-size: 1.45rem;
       margin-bottom: 16px;
     }
 
-    .feature h3 {
-      margin: 0 0 6px;
-      font-size: 1.12rem;
-      letter-spacing: -0.01em;
-    }
-
-    .feature p {
-      margin: 0 0 14px;
-      color: #6f4a36;
-      font-size: 0.92rem;
-      line-height: 1.55;
-      flex: 1;
-    }
-
-    .feature .arrow {
-      font-family: "JetBrains Mono", monospace;
-      font-size: 0.82rem;
-      font-weight: 600;
-      color: var(--accent);
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      transition: gap .18s ease;
-    }
-
-    .feature:hover .arrow { gap: 10px; }
-
-    /* Final CTA */
-    .final-cta {
-      text-align: center;
-      padding: clamp(32px, 4vw, 48px);
-    }
-
-    .final-cta h2 {
-      font-size: clamp(1.5rem, 2.4vw, 2rem);
+    .landing-feature-card h3,
+    .landing-data-card h3,
+    .landing-storyboard-block h3 {
       margin: 0 0 10px;
+      font-size: 1.16rem;
     }
 
-    .final-cta p {
-      color: #6f4a36;
-      margin: 0 0 22px;
+    .landing-feature-card p,
+    .landing-data-card p,
+    .landing-storyboard-block p,
+    .landing-bullet-copy p {
+      margin: 0;
+      color: var(--landing-muted);
+      line-height: 1.68;
+      font-size: 0.96rem;
+    }
+
+    .landing-storyboard {
+      display: grid;
+      grid-template-columns: minmax(0, 1.08fr) minmax(320px, 0.92fr);
+      gap: 18px;
+      padding: 18px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.8), rgba(255, 248, 241, 0.96));
+      border: 1px solid rgba(255, 255, 255, 0.88);
+    }
+
+    .landing-storyboard-visual {
+      min-height: 420px;
+      padding: 26px;
+      border-radius: 24px;
+      background:
+        radial-gradient(circle at top right, rgba(255, 190, 150, 0.36), transparent 28%),
+        linear-gradient(180deg, #fff8f2, #ffe9dc);
+      border: 1px solid rgba(255, 255, 255, 0.88);
+    }
+
+    .landing-visual-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .landing-visual-header h3 {
+      margin: 0;
       font-size: 1rem;
     }
 
-    @media (max-width: 960px) {
-      .hero { grid-template-columns: 1fr; gap: 28px; }
-      .metric-strip { grid-template-columns: repeat(2, 1fr); }
-      .metric { border-right: none; border-bottom: 1px solid var(--line); }
-      .metric:nth-child(odd) { border-right: 1px solid var(--line); }
-      .metric:nth-last-child(-n+2) { border-bottom: none; }
-      .how-steps, .feature-row { grid-template-columns: 1fr; }
-      .how-intro { grid-template-columns: 1fr; }
+    .landing-visual-shell {
+      display: grid;
+      gap: 14px;
+    }
+
+    .landing-visual-pane {
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.84);
+      padding: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.92);
+      box-shadow: 0 12px 24px rgba(84, 54, 41, 0.06);
+    }
+
+    .landing-mini-grid {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      margin-top: 12px;
+    }
+
+    .landing-mini-card {
+      border-radius: 14px;
+      padding: 12px;
+      background: rgba(255, 122, 56, 0.08);
+      color: #644839;
+      font-size: 0.88rem;
+    }
+
+    .landing-storyboard-copy {
+      display: grid;
+      gap: 12px;
+    }
+
+    .landing-storyboard-block {
+      padding: 20px;
+      border-radius: 22px;
+      background: var(--landing-surface-strong);
+      border: 1px solid rgba(42, 29, 22, 0.08);
+    }
+
+    .landing-bullet-list {
+      display: grid;
+      gap: 14px;
+      margin-top: 4px;
+    }
+
+    .landing-bullet {
+      display: grid;
+      grid-template-columns: 44px minmax(0, 1fr);
+      gap: 14px;
+      align-items: start;
+    }
+
+    .landing-bullet-mark {
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      background: rgba(255, 122, 56, 0.1);
+      color: var(--landing-accent);
+      font-weight: 800;
+    }
+
+    .landing-bullet-label {
+      display: block;
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: var(--landing-ink);
+      margin-bottom: 4px;
+      text-transform: uppercase;
+    }
+
+    .landing-data-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+    }
+
+    .landing-data-card {
+      padding: 24px;
+      background: rgba(255, 250, 244, 0.84);
+      border: 1px solid rgba(255, 255, 255, 0.84);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .landing-metric-grid {
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .landing-metric {
+      min-width: 120px;
+      padding: 12px 14px;
+      border-radius: 16px;
+      background: rgba(255, 122, 56, 0.08);
+    }
+
+    .landing-metric strong {
+      display: block;
+      font-size: 1.22rem;
+      margin-bottom: 4px;
+    }
+
+    .landing-metric span {
+      color: var(--landing-muted);
+      font-size: 0.84rem;
+    }
+
+    .landing-step-list {
+      align-items: stretch;
+      gap: 0;
+      border-radius: 30px;
+      overflow: hidden;
+      box-shadow: var(--landing-shadow);
+      background: #fffaf5;
+      border: 1px solid rgba(255, 255, 255, 0.86);
+    }
+
+    .landing-step {
+      flex: 1 1 0;
+      padding: 28px 24px;
+      background: rgba(255, 250, 244, 0.94);
+    }
+
+    .landing-step:nth-child(2) {
+      background: rgba(255, 244, 236, 0.96);
+    }
+
+    .landing-step:nth-child(3) {
+      background: rgba(255, 238, 225, 0.92);
+    }
+
+    .landing-step-number {
+      width: 50px;
+      height: 50px;
+      margin-bottom: 18px;
+      border-radius: 18px;
+      display: grid;
+      place-items: center;
+      color: #fff;
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 1.1rem;
+      background: linear-gradient(135deg, var(--landing-accent), #ffae53);
+    }
+
+    .landing-step h3 {
+      margin: 0 0 10px;
+      font-size: 1.16rem;
+    }
+
+    .landing-step p {
+      margin: 0;
+      color: var(--landing-muted);
+      line-height: 1.72;
+      font-size: 0.96rem;
+    }
+
+    .landing-cta-panel {
+      position: relative;
+      overflow: hidden;
+      padding: clamp(28px, 4vw, 44px);
+      margin-bottom: 32px;
+      background:
+        radial-gradient(circle at top right, rgba(255, 177, 124, 0.14), transparent 26%),
+        linear-gradient(135deg, #201917, #2c231f);
+      color: #fff9f3;
+    }
+
+    .landing-cta-panel h2 {
+      margin: 0 0 12px;
+      font-size: clamp(2rem, 4vw, 3rem);
+      line-height: 1.02;
+      letter-spacing: -0.05em;
+      max-width: 10ch;
+    }
+
+    .landing-cta-panel p {
+      margin: 0 0 24px;
+      max-width: 54ch;
+      color: rgba(255, 249, 243, 0.78);
+      line-height: 1.72;
+    }
+
+    .landing-cta-note {
+      margin-top: 16px;
+      font-size: 0.88rem;
+      color: rgba(255, 249, 243, 0.62);
+    }
+
+    .landing-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 0 0 36px;
+      color: var(--landing-muted);
+    }
+
+    .landing-footer-brand {
+      font-size: 1rem;
+      color: var(--landing-ink);
+    }
+
+    .landing-footer-link {
+      text-decoration: none;
+      font-weight: 600;
+      color: var(--landing-muted);
+    }
+
+    .landing-footer-link:hover {
+      color: var(--landing-ink);
+    }
+
+    .reveal {
+      opacity: 0;
+      transform: translateY(28px);
+      transition: opacity 0.7s ease, transform 0.7s ease;
+    }
+
+    .reveal.is-visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    @media (max-width: 1024px) {
+
+      .landing-hero-card,
+      .landing-storyboard,
+      .landing-data-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .landing-feature-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .landing-nav {
+        flex-wrap: wrap;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .landing-grid {
+        width: min(100% - 20px, 1180px);
+      }
+
+      .landing-nav-wrap {
+        padding: 10px 0;
+      }
+
+      .landing-nav {
+        border-radius: 18px;
+        padding: 14px;
+      }
+
+      .landing-nav-links,
+      .landing-nav-actions {
+        width: 100%;
+      }
+
+      .landing-nav-links {
+        justify-content: space-between;
+        gap: 8px 14px;
+      }
+
+      .landing-nav-actions {
+        justify-content: flex-end;
+      }
+
+      .landing-hero {
+        padding-top: 28px;
+      }
+
+      .landing-hero-card {
+        padding: 22px;
+        border-radius: 28px;
+      }
+
+      .landing-feature-grid,
+      .landing-data-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .landing-step-list {
+        flex-direction: column;
+      }
+
+      .landing-footer {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .landing-footer-links {
+        gap: 16px;
+      }
     }
   </style>
 </head>
-<body>
-  <div class="bg-orbs" aria-hidden="true"><div class="orb"></div><div class="orb"></div><div class="orb"></div><div class="orb"></div></div>
 
-  <div class="page">
-    <header class="topbar">
-      <div class="brand">
-        <div class="brand-badge">🍽️</div>
-        <div>FoodVision AI</div>
-      </div>
-      <nav class="nav-links">
-        <a class="nav-link active" href="index.html">Home</a>
-        <a class="nav-link" href="calories.html">Planner</a>
-        <a class="nav-link" href="profile.html">Profile</a>
-        <a class="nav-link" href="delivery.html">Delivery</a>
-      </nav>
-      <button id="topAuthBtn" class="ghost-btn">Sign Up / Login</button>
-    </header>
+<body class="landing-body">
+  <div class="landing-shell">
+    <div class="landing-noise" aria-hidden="true"></div>
 
-    <section class="panel hero">
-      <div>
-        <span class="eyebrow">Adaptive meal planner</span>
-        <h1 class="hero-title">
-          It's 7pm. You open the fridge.<br/>
-          <span class="serif">We know what you should cook.</span>
-        </h1>
-        <p class="hero-sub">
-          Snap a photo of your fridge. Get a recipe shaped by <strong>what the AI sees</strong>
-          and <strong>what it has learned</strong> from every meal you've generated. No 40-field
-          onboarding — your profile builds itself as you cook.
-        </p>
-        <div class="cta-row">
-          <a class="pill-btn" href="calories.html" style="text-decoration:none;">Start Planning →</a>
-          <a class="ghost-btn" href="delivery.html" style="text-decoration:none;">Browse Restaurants</a>
-        </div>
-        <div class="session-chip" id="sessionChip">
-          <span class="dot"></span>
-          <span id="sessionInfo">Current mode: Visitor (not signed in).</span>
-        </div>
-      </div>
+    <div class="landing-nav-wrap" id="landingNavWrap">
+      <div class="landing-grid">
+        <header class="landing-nav">
+          <a class="landing-brand" href="index.html" aria-label="FoodVision AI home">
+            <div class="landing-brand-mark">FV</div>
+            <div class="landing-brand-text">
+              <strong>FoodVision AI</strong>
+              <span>Adaptive meal planning for real kitchens</span>
+            </div>
+          </a>
 
-      <div class="preview-wrap" aria-hidden="true">
-        <div class="preview-card">
-          <div class="preview-hero">
-            <span>🍲</span>
-            <span class="chip">AI Pick</span>
+          <nav class="landing-nav-links" aria-label="Primary">
+            <a class="landing-nav-link" href="#product">Product</a>
+            <a class="landing-nav-link" href="#how-it-works">How It Works</a>
+            <a class="landing-nav-link" href="food-login.html?return=calories.html">Try It</a>
+          </nav>
+
+          <div class="landing-nav-actions">
+            <button id="topAuthBtn" class="landing-btn-ghost" type="button">Sign Up / Login</button>
           </div>
-          <div class="preview-body">
-            <h4>Kimchi Jjigae</h4>
-            <p class="sub">Spicy Korean stew — based on your last 3 meals.</p>
-            <div class="preview-tags">
-              <span>Korean</span>
-              <span>Spicy</span>
-              <span>35 min</span>
-              <span>Serves 2</span>
+        </header>
+      </div>
+    </div>
+
+    <main>
+      <section class="landing-hero">
+        <div class="landing-grid">
+          <div class="landing-hero-card reveal">
+            <div class="landing-hero-copy">
+              <div class="landing-kicker">Adaptive Meal Intelligence</div>
+              <h1>Turn a fridge photo into <span>dinner plans</span> that get smarter every week.</h1>
+              <p>
+                FoodVision AI combines photo-based ingredient recognition, a 14-day meal memory,
+                and profile evolution so the next meal recommendation actually reflects what you
+                cooked, craved, and repeated.
+              </p>
+
+              <div class="landing-hero-actions">
+                <a class="landing-btn-primary" href="food-login.html?return=calories.html">Start</a>
+                <a class="landing-btn-secondary" href="#product">See Product Flow</a>
+              </div>
+
+              <div class="landing-pill-row">
+                <div class="landing-pill">Qwen3-VL powered image analysis</div>
+                <div class="landing-pill">Jac graph-backed meal history</div>
+                <div class="landing-pill">Live delivery hub for Ann Arbor</div>
+              </div>
+
+              <p class="landing-session" id="sessionInfo">Checking session status...</p>
             </div>
-            <div class="preview-nutrition">
-              <div><strong>420</strong>kcal</div>
-              <div><strong>28g</strong>protein</div>
-              <div><strong>36g</strong>carbs</div>
-              <div><strong>18g</strong>fat</div>
+
+            <aside class="landing-hero-panel" aria-label="Product preview">
+              <div class="landing-panel-top">
+                <div>
+                  <p class="landing-panel-title">Tonight's recommendation</p>
+                </div>
+                <span class="landing-live-pill">AI learned</span>
+              </div>
+
+              <div class="landing-chat">
+                <div class="landing-chat-bubble user">
+                  I opened the fridge at 7pm. I want something fast, spicy, and not the same Korean dish again.
+                </div>
+                <div class="landing-chat-bubble ai">
+                  <strong>Harissa Chickpea Rice Bowl</strong><br />
+                  Pantry-friendly, 24 minutes, high protein, and different from your recent kimchi-heavy meal streak.
+                </div>
+                <div class="landing-chat-bubble ai success">
+                  Profile updated: quick meals + spicy flavors are now reinforced from recent behavior.
+                </div>
+              </div>
+
+              <div class="landing-stats">
+                <div class="landing-stat">
+                  <strong>14 days</strong>
+                  <span class="landing-stat-label">history-aware prompting</span>
+                </div>
+                <div class="landing-stat">
+                  <strong>2 passes</strong>
+                  <span class="landing-stat-label">recommend + evolve profile</span>
+                </div>
+                <div class="landing-stat">
+                  <strong>0 forms</strong>
+                  <span class="landing-stat-label">preferences can emerge naturally</span>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </section>
+
+      <section class="landing-section" id="product">
+        <div class="landing-grid">
+          <div class="landing-section-head reveal">
+            <div class="landing-section-kicker">Inspired by strong SaaS landing pages</div>
+            <h2>A clearer story, built around the product you already have.</h2>
+            <p>
+              The reference site works because it keeps the promise simple, shows the core workflow
+              fast, and breaks value into short, believable blocks. This homepage uses the same
+              rhythm, but every section here maps to features that already exist in your codebase.
+            </p>
+          </div>
+
+          <div class="landing-feature-grid">
+            <article class="landing-feature-card reveal">
+              <div class="landing-feature-icon">📸</div>
+              <h3>Photo-first meal planning</h3>
+              <p>
+                Users can upload a food or fridge image, add a craving, and get a structured recipe
+                plan instead of typing through a long onboarding funnel.
+              </p>
+            </article>
+
+            <article class="landing-feature-card reveal">
+              <div class="landing-feature-icon">🧠</div>
+              <h3>Adaptive profile evolution</h3>
+              <p>
+                The backend analyzes recent meals and additively updates cuisine and flavor
+                preferences, so the product learns from behavior instead of asking everything up front.
+              </p>
+            </article>
+
+            <article class="landing-feature-card reveal">
+              <div class="landing-feature-icon">🛵</div>
+              <h3>Useful beyond the recipe</h3>
+              <p>
+                If cooking is not the move, users can jump into a delivery hub with nearby
+                restaurants sorted against live location and current intent.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="landing-section">
+        <div class="landing-grid">
+          <div class="landing-storyboard reveal">
+            <div class="landing-storyboard-visual">
+              <div class="landing-visual-header">
+                <h3>What users see</h3>
+                <span class="landing-live-pill" style="background:#ffe2cf;color:#8a4322;">Photo -> Plan -> Learn</span>
+              </div>
+
+              <div class="landing-visual-shell">
+                <div class="landing-visual-pane">
+                  <strong>Input</strong>
+                  <p style="margin:8px 0 0;color:#6f6159;line-height:1.6;">
+                    Upload image + add a craving like "comfort food under 30 minutes".
+                  </p>
+                  <div class="landing-mini-grid">
+                    <div class="landing-mini-card">Ingredients detected from image</div>
+                    <div class="landing-mini-card">Current profile injected into prompt</div>
+                  </div>
+                </div>
+
+                <div class="landing-visual-pane">
+                  <strong>Output</strong>
+                  <p style="margin:8px 0 0;color:#6f6159;line-height:1.6;">
+                    Recipe idea, prep steps, nutrition cues, and more variety-aware recommendations.
+                  </p>
+                  <div class="landing-mini-grid">
+                    <div class="landing-mini-card">Avoid recent repeats</div>
+                    <div class="landing-mini-card">Respect cuisine patterns</div>
+                  </div>
+                </div>
+
+                <div class="landing-visual-pane">
+                  <strong>After save</strong>
+                  <p style="margin:8px 0 0;color:#6f6159;line-height:1.6;">
+                    Meal history persists and a second AI pass updates the profile with inferred tastes.
+                  </p>
+                </div>
+              </div>
             </div>
-            <div class="learned-card">
-              <span style="font-size:1.2rem;">🧠</span>
-              <div class="txt">
-                <strong>Profile updated</strong>
-                cuisine + Korean · flavor + spicy
+
+            <div class="landing-storyboard-copy">
+              <div class="landing-storyboard-block">
+                <h3>Why this framing works</h3>
+                <p>
+                  Instead of presenting the app as three disconnected pages, the landing page now
+                  narrates one loop: generate a meal, save it, learn from it, and use that context
+                  next time.
+                </p>
+              </div>
+
+              <div class="landing-storyboard-block">
+                <div class="landing-bullet-list">
+                  <div class="landing-bullet">
+                    <div class="landing-bullet-mark">01</div>
+                    <div class="landing-bullet-copy">
+                      <span class="landing-bullet-label">Fast promise</span>
+                      <p>The hero immediately explains what the product does and what feels different about it.</p>
+                    </div>
+                  </div>
+
+                  <div class="landing-bullet">
+                    <div class="landing-bullet-mark">02</div>
+                    <div class="landing-bullet-copy">
+                      <span class="landing-bullet-label">Concrete proof</span>
+                      <p>The cards and workflow sections talk about capabilities that are actually implemented in this
+                        repo.</p>
+                    </div>
+                  </div>
+
+                  <div class="landing-bullet">
+                    <div class="landing-bullet-mark">03</div>
+                    <div class="landing-bullet-copy">
+                      <span class="landing-bullet-label">Clear action</span>
+                      <p>Every major section routes users into Planner, Delivery, or Profile instead of leaving them at
+                        a dead end.</p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
-        <div class="preview-badge">
-          <span class="k">AI learned</span>
-          3 Korean meals in your history
-        </div>
-      </div>
-    </section>
+      </section>
 
-    <div class="metric-strip">
-      <div class="metric">
-        <div class="value">14d</div>
-        <div class="label">Rolling meal memory fed into every prompt</div>
-      </div>
-      <div class="metric">
-        <div class="value">0</div>
-        <div class="label">Preference fields to fill out by hand</div>
-      </div>
-      <div class="metric">
-        <div class="value">+∞</div>
-        <div class="label">Additive-only updates — no preference ever deleted</div>
-      </div>
-      <div class="metric">
-        <div class="value">1×</div>
-        <div class="label">Real Qwen3-VL-32B call per recipe, no cache tricks</div>
-      </div>
-    </div>
+      <section class="landing-section">
+        <div class="landing-grid">
+          <div class="landing-section-head reveal">
+            <div class="landing-section-kicker">Built From The Existing Stack</div>
+            <h2>The landing page now sells the system, not just the screens.</h2>
+            <p>
+              Your backend and docs already describe a real intelligence loop. Surfacing that in the
+              homepage makes the app feel more like a product and less like a collection of demos.
+            </p>
+          </div>
 
-    <section class="panel">
-      <div class="how-intro">
-        <div>
-          <span class="eyebrow">How it learns</span>
-          <h2>Three moments, every time you cook</h2>
-          <p class="hint" style="margin:0; max-width:62ch;">
-            No settings page. No preference form. The app gets smarter as a side effect of
-            using it, not as a prerequisite.
-          </p>
-        </div>
-      </div>
-      <div class="how-steps">
-        <div class="how-step">
-          <div class="icon">📸</div>
-          <span class="step-num">STEP 01</span>
-          <h4>Photo → recipe</h4>
-          <p>Qwen3-VL reads the ingredients in your image and proposes a dish with prep steps and nutrition tailored to your current profile.</p>
-        </div>
-        <div class="how-step">
-          <div class="icon">🕑</div>
-          <span class="step-num">STEP 02</span>
-          <h4>Remembers 14 days</h4>
-          <p>Every meal is saved to your personal graph. The next generation includes a summary of your last two weeks so the AI avoids repeats.</p>
-        </div>
-        <div class="how-step">
-          <div class="icon">🧠</div>
-          <span class="step-num">STEP 03</span>
-          <h4>Profile evolves</h4>
-          <p>A second AI pass reads your history and <em>additively</em> updates your preferences. The <span class="learned-pill">AI learned</span> badge shows which ones came from patterns.</p>
-        </div>
-      </div>
-    </section>
+          <div class="landing-data-grid">
+            <article class="landing-data-card reveal">
+              <h3>History-aware recommendations</h3>
+              <p>
+                Before generation, the planner can summarize the last 14 days of meals and inject
+                that context into the prompt to push for variety.
+              </p>
+              <div class="landing-metric-grid">
+                <div class="landing-metric">
+                  <strong>14-day</strong>
+                  <span>recent history window</span>
+                </div>
+                <div class="landing-metric">
+                  <strong>JWT</strong>
+                  <span>persistent meal records</span>
+                </div>
+              </div>
+            </article>
 
-    <section class="panel">
-      <div class="how-intro">
-        <div>
-          <span class="eyebrow">Jump in</span>
-          <h2>Pick where to start</h2>
+            <article class="landing-data-card reveal">
+              <h3>AI-learned profile badges</h3>
+              <p>
+                The profile page can distinguish between manual preferences and AI-inferred ones,
+                which makes the adaptation visible and believable.
+              </p>
+              <div class="landing-metric-grid">
+                <div class="landing-metric">
+                  <strong>Additive</strong>
+                  <span>non-destructive updates</span>
+                </div>
+                <div class="landing-metric">
+                  <strong>Explainable</strong>
+                  <span>learned fields shown in UI</span>
+                </div>
+              </div>
+            </article>
+
+            <article class="landing-data-card reveal">
+              <h3>Fallback path to delivery</h3>
+              <p>
+                Not every user wants to cook tonight. Linking the meal planner with nearby restaurants
+                gives the product a practical second path instead of a single narrow use case.
+              </p>
+              <div class="landing-metric-grid">
+                <div class="landing-metric">
+                  <strong>OSM</strong>
+                  <span>live restaurant data</span>
+                </div>
+                <div class="landing-metric">
+                  <strong>Geo</strong>
+                  <span>distance-aware sorting</span>
+                </div>
+              </div>
+            </article>
+          </div>
         </div>
-      </div>
-      <div class="feature-row">
-        <a class="feature" href="calories.html">
-          <div class="badge">📊</div>
-          <h3>Meal Planner</h3>
-          <p>Upload a photo, describe your craving, get a structured recipe. This is the part that learns from you.</p>
-          <span class="arrow">Open planner →</span>
-        </a>
-        <a class="feature" href="profile.html">
-          <div class="badge">👤</div>
-          <h3>Your Profile</h3>
-          <p>See which preferences came from you and which were learned by the AI, pill by pill, with provenance.</p>
-          <span class="arrow">View profile →</span>
-        </a>
-        <a class="feature" href="delivery.html">
-          <div class="badge">🛵</div>
-          <h3>Delivery Hub</h3>
-          <p>Ann Arbor restaurants pulled live from OpenStreetMap, sorted by your current location.</p>
-          <span class="arrow">Browse nearby →</span>
-        </a>
-      </div>
-    </section>
+      </section>
 
-    <section class="panel final-cta">
-      <span class="eyebrow">Ready when you are</span>
-      <h2>Your fridge, your taste, one photo away.</h2>
-      <p>No onboarding. No preference form. Just cook.</p>
-      <div class="cta-row" style="justify-content:center;">
-        <a class="pill-btn" href="calories.html" style="text-decoration:none;">Start Planning →</a>
-      </div>
-    </section>
+      <section class="landing-section" id="how-it-works">
+        <div class="landing-grid">
+          <div class="landing-section-head reveal">
+            <div class="landing-section-kicker">How It Works</div>
+            <h2>One loop. Three simple moments.</h2>
+            <p>
+              This is the part the reference site does especially well: the flow is broken into
+              short steps users can understand in seconds. Your app has a strong version of that too.
+            </p>
+          </div>
 
+          <div class="landing-step-list reveal">
+            <article class="landing-step">
+              <div class="landing-step-number">1</div>
+              <h3>Snap or upload</h3>
+              <p>
+                Start from a food photo, fridge photo, or a craving. The user does not need to build
+                a perfect profile before the product becomes useful.
+              </p>
+            </article>
+
+            <article class="landing-step">
+              <div class="landing-step-number">2</div>
+              <h3>Generate with context</h3>
+              <p>
+                The planner combines image understanding, current profile data, and recent meal
+                history so recommendations feel more intentional than one-off prompt completions.
+              </p>
+            </article>
+
+            <article class="landing-step">
+              <div class="landing-step-number">3</div>
+              <h3>Learn for next time</h3>
+              <p>
+                After saving the meal, the system can evolve the profile and show which preferences
+                were inferred. The next session starts smarter than the last one.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="landing-section">
+        <div class="landing-grid">
+          <div class="landing-cta-panel reveal">
+            <h2>Start with tonight. Let the product learn the rest.</h2>
+            <p>
+              The best entry point is still the planner. Start with one meal generation first, then
+              sign in if you want the app to save history, evolve your profile, and unlock the more
+              personal parts of the experience.
+            </p>
+
+            <div class="landing-hero-actions">
+              <a class="landing-btn-primary" href="food-login.html?return=calories.html">Start</a>
+            </div>
+
+            <div class="landing-cta-note">
+              After login: Planner -> saved history -> Adaptive Profile -> Delivery
+            </div>
+          </div>
+
+          <footer class="landing-footer">
+            <div>
+              <div class="landing-footer-brand">FoodVision AI</div>
+              <div>Adaptive meal planning, profile evolution, and practical dinner fallback paths.</div>
+            </div>
+            <div class="landing-footer-links">
+              <a class="landing-footer-link" href="calories.html">Planner</a>
+              <a class="landing-footer-link" href="profile.html">Profile</a>
+              <a class="landing-footer-link" href="delivery.html">Delivery</a>
+            </div>
+          </footer>
+        </div>
+      </section>
+    </main>
   </div>
 
   <script src="auth.js"></script>
@@ -637,33 +1201,67 @@
     (function () {
       var user = FoodAuth.getUser();
       var sessionInfo = document.getElementById("sessionInfo");
-      var sessionChip = document.getElementById("sessionChip");
       var authBinding = FoodAuth.wireTopbarAuth("topAuthBtn", refreshSessionText);
+      var navWrap = document.getElementById("landingNavWrap");
+      var reveals = document.querySelectorAll(".reveal");
 
       FoodAuth.showNoHistoryPopup();
 
       function refreshSessionText() {
         user = FoodAuth.getUser();
-        sessionChip.classList.toggle("in", !!user);
         if (!user) {
-          sessionInfo.textContent = "Current mode: Visitor (not signed in).";
+          sessionInfo.textContent = "Current mode: visitor preview. Sign in to store meal history and evolve your profile.";
           return;
         }
+
         if (user.mode === "guest") {
-          sessionInfo.textContent = "Guest session active.";
+          sessionInfo.textContent = "Current mode: guest session. You can explore the planner without creating a permanent account.";
         } else if (user.mode === "phone") {
-          sessionInfo.textContent = "Signed in — " + user.phone;
+          sessionInfo.textContent = "Current mode: signed in by phone (" + user.phone + "). Adaptive features will use your saved records.";
         } else {
-          sessionInfo.textContent = "Signed in — " + user.email;
+          sessionInfo.textContent = "Current mode: signed in by email (" + user.email + "). Adaptive features will use your saved records.";
+        }
+      }
+
+      function revealOnScroll() {
+        if (!("IntersectionObserver" in window)) {
+          reveals.forEach(function (el) { el.classList.add("is-visible"); });
+          return;
+        }
+
+        var observer = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            if (entry.isIntersecting) {
+              entry.target.classList.add("is-visible");
+              observer.unobserve(entry.target);
+            }
+          });
+        }, { threshold: 0.16 });
+
+        reveals.forEach(function (el) {
+          observer.observe(el);
+        });
+      }
+
+      function syncNavState() {
+        if (window.scrollY > 12) {
+          navWrap.classList.add("scrolled");
+        } else {
+          navWrap.classList.remove("scrolled");
         }
       }
 
       refreshSessionText();
+      revealOnScroll();
+      syncNavState();
 
       if (authBinding && typeof authBinding.refresh === "function") {
         authBinding.refresh();
       }
+
+      window.addEventListener("scroll", syncNavState, { passive: true });
     })();
   </script>
 </body>
+
 </html>
